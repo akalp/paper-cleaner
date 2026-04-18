@@ -1,27 +1,84 @@
+import { useRef } from "react";
+
+import { FeedbackPanel } from "./components/FeedbackPanel";
+import { PageSidebar } from "./components/PageSidebar";
+import { SelectedPageEditor } from "./components/SelectedPageEditor";
+import { WorkspaceHeader } from "./components/WorkspaceHeader";
+import { useWorkspaceSession } from "./hooks/useWorkspaceSession";
+
 function App() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    session,
+    documents,
+    selectedDocument,
+    selectedDocumentId,
+    isSessionLoading,
+    isUploading,
+    sessionError,
+    uploadError,
+    selectDocument,
+    uploadFiles,
+  } = useWorkspaceSession();
+
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    await uploadFiles(files);
+  }
+
+  function triggerFilePicker() {
+    if (isSessionLoading || session === null || isUploading) {
+      return;
+    }
+
+    fileInputRef.current?.click();
+  }
+
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <p className="eyebrow">Phase 1 Foundation</p>
-        <h1>paper-cleaner</h1>
-        <p className="description">
-          Frontend and backend scaffolding are in place. Editor features,
-          document workflows, and exports will be added in later phases.
-        </p>
-      </section>
-      <section className="status-grid" aria-label="Project status">
-        <article className="status-card">
-          <h2>Frontend</h2>
-          <p>Vite, React, TypeScript, and pnpm-based scripts are configured.</p>
-        </article>
-        <article className="status-card">
-          <h2>Backend</h2>
-          <p>FastAPI is bootable with an `/api/health` endpoint.</p>
-        </article>
-        <article className="status-card">
-          <h2>Docker</h2>
-          <p>Multi-stage packaging is prepared for a single runtime container.</p>
-        </article>
+    <main className="workspace">
+      <input
+        ref={fileInputRef}
+        className="sr-only"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(event) => {
+          void handleUpload(event);
+        }}
+      />
+
+      <WorkspaceHeader
+        isSessionLoading={isSessionLoading}
+        isUploading={isUploading}
+        sessionId={session?.id ?? null}
+        onUploadClick={triggerFilePicker}
+      />
+
+      {sessionError ? (
+        <FeedbackPanel
+          title="Session unavailable"
+          message={sessionError}
+          actionLabel="Retry"
+          onAction={() => window.location.reload()}
+        />
+      ) : null}
+
+      {uploadError ? (
+        <FeedbackPanel title="Upload failed" message={uploadError} />
+      ) : null}
+
+      <section className="workspace-body">
+        <PageSidebar
+          documents={documents}
+          selectedDocumentId={selectedDocumentId}
+          isSessionLoading={isSessionLoading}
+          onSelectDocument={selectDocument}
+        />
+        <SelectedPageEditor
+          document={selectedDocument}
+          isSessionLoading={isSessionLoading}
+        />
       </section>
     </main>
   );
