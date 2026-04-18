@@ -318,6 +318,94 @@ img {
   flex: 1;
 }
 
+.editor-card--phase4 {
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
+}
+
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.editor-surface,
+.preview-frame--result {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.editor-instructions {
+  margin: 0;
+  color: #516159;
+}
+
+.source-editor-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 12px;
+  border: 1px solid rgba(26, 36, 32, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(34, 53, 44, 0.04), rgba(195, 109, 42, 0.08)),
+    #f8f6f0;
+  overflow: hidden;
+}
+
+.editor-loading-state {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  color: #516159;
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.editor-validation,
+.summary-warning {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(195, 109, 42, 0.12);
+  color: #7a4a1e;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-chip--detected {
+  background: rgba(34, 53, 44, 0.1);
+  color: #22352c;
+}
+
+.status-chip--fallback_full_image {
+  background: rgba(195, 109, 42, 0.14);
+  color: #7a4a1e;
+}
+
 .preview-frame,
 .document-summary {
   border: 1px solid rgba(26, 36, 32, 0.08);
@@ -332,6 +420,11 @@ img {
   min-height: 420px;
   padding: 20px;
   overflow: hidden;
+}
+
+.preview-frame--result {
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .preview-image {
@@ -409,7 +502,8 @@ img {
   }
 
   .workspace-body,
-  .editor-card {
+  .editor-card,
+  .editor-workspace {
     grid-template-columns: 1fr;
   }
 

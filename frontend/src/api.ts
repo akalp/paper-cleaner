@@ -1,4 +1,4 @@
-import type { SessionResponse } from "./types";
+import type { CropRect, DocumentResponse, Point, SessionResponse } from "./types";
 
 async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
@@ -43,5 +43,40 @@ export function uploadDocuments(
   return requestJson<SessionResponse>(`/api/sessions/${sessionId}/documents`, {
     method: "POST",
     body: formData,
+  });
+}
+
+interface UpdateTransformRequest {
+  user_corners: Point[] | null;
+  crop_rect?: CropRect | null;
+}
+
+interface AutoDetectRequest {
+  apply_to_user_corners?: boolean;
+}
+
+export function updateDocumentTransform(
+  documentId: string,
+  payload: UpdateTransformRequest,
+): Promise<DocumentResponse> {
+  return requestJson<DocumentResponse>(`/api/documents/${documentId}/update-transform`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function rerunDocumentAutoDetect(
+  documentId: string,
+  payload: AutoDetectRequest = {},
+): Promise<DocumentResponse> {
+  return requestJson<DocumentResponse>(`/api/documents/${documentId}/auto-detect`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
 }

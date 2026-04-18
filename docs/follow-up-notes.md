@@ -2,5 +2,11 @@
 
 ## Relevant Future Phase Notes
 
-- EXIF orientation policy must be made explicit before Phase 4 or Phase 5 depend on persisted coordinates. Phase 2 previews and initial dimensions currently use EXIF-normalized image orientation while original files remain unchanged on disk.
-- Phase 2 document editing fields such as `auto_corners`, `crop_rect`, tone settings, and erase paths are structural placeholders only. Later phases must not treat them as fully implemented editing behavior until the corresponding backend and frontend features are completed.
+- DONE in Phase 4: EXIF orientation policy is now explicit for persisted perspective coordinates. The app stores and edits corners in EXIF-normalized image space while original files remain unchanged on disk.
+- PARTIALLY DONE in Phase 4: document editing fields are no longer placeholders for automatic detection and manual perspective correction. `crop_rect`, tone settings, and erase paths still remain structural placeholders until their corresponding phases are completed.
+
+## Optional Later Improvements
+
+- Add visual or manual QA coverage for corner dragging and preview refresh behavior after more editor phases land.
+- Revisit frontend bundle splitting if the production bundle continues growing beyond the current Phase 4 size.
+- Add a broader backend image-pipeline harness before crop, tone, and erase phases build on the same render path.

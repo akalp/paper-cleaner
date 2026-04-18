@@ -24,22 +24,7 @@ class SessionService:
             )
 
         try:
-            documents = [
-                DocumentResponse(
-                    id=document.id,
-                    filename=document.filename,
-                    order_index=document.order_index,
-                    auto_corners=document.auto_corners,
-                    user_corners=document.user_corners,
-                    crop_rect=document.crop_rect,
-                    tone_preset=document.tone_preset,
-                    brightness=document.brightness,
-                    contrast=document.contrast,
-                    erase_paths=document.erase_paths,
-                    preview_url=f"/api/documents/{document.id}/preview",
-                )
-                for document in storage.list_documents(session.document_ids)
-            ]
+            documents = [self.to_document_response(document) for document in storage.list_documents(session.document_ids)]
         except StorageConsistencyError as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -51,6 +36,26 @@ class SessionService:
             created_at=session.created_at,
             updated_at=session.updated_at,
             documents=documents,
+        )
+
+    def to_document_response(self, document) -> DocumentResponse:
+        return DocumentResponse(
+            id=document.id,
+            filename=document.filename,
+            order_index=document.order_index,
+            normalized_width=document.normalized_width,
+            normalized_height=document.normalized_height,
+            auto_detect_status=document.auto_detect_status,
+            auto_corners=document.auto_corners,
+            user_corners=document.user_corners,
+            crop_rect=document.crop_rect,
+            tone_preset=document.tone_preset,
+            brightness=document.brightness,
+            contrast=document.contrast,
+            erase_paths=document.erase_paths,
+            source_url=f"/api/documents/{document.id}/source",
+            preview_url=f"/api/documents/{document.id}/preview",
+            preview_version=document.updated_at,
         )
 
 

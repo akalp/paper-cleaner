@@ -14,11 +14,11 @@ export function WorkspaceHeader({
   return (
     <header className="workspace-header">
       <div>
-        <p className="workspace-kicker">Phase 3 Workspace</p>
+        <p className="workspace-kicker">Phase 4 Workspace</p>
         <h1>paper-cleaner</h1>
         <p className="workspace-description">
-          Upload pages, browse them in order, and prepare for editing tools in later
-          phases.
+          Upload pages, inspect auto-detected document corners, and correct perspective
+          before later cleanup phases.
         </p>
       </div>
 

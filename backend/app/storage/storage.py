@@ -21,6 +21,7 @@ class FileSystemStorage:
     def ensure_directories(self) -> None:
         for path in (
             settings.uploads_dir,
+            self.sources_dir(),
             settings.previews_dir,
             settings.temp_dir,
             settings.session_metadata_dir,
@@ -45,6 +46,12 @@ class FileSystemStorage:
 
     def preview_path(self, document_id: str) -> Path:
         return settings.previews_dir / f"{document_id}.png"
+
+    def source_path(self, document_id: str) -> Path:
+        return self.sources_dir() / f"{document_id}.png"
+
+    def sources_dir(self) -> Path:
+        return settings.rendered_dir / "sources"
 
     def public_path(self, path: Path) -> str:
         return str(path.relative_to(self.root_dir))
