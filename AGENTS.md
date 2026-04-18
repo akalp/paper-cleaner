@@ -85,6 +85,8 @@ When implementing features:
 - keep functions and components readable
 - prefer explicitness over cleverness
 - document assumptions when needed
+- if sandbox limits block required work, request elevated permission for the required process
+- do not install packages that are not required by the project/runtime solely for control, checking, or verification
 
 ## Coding style expectations
 

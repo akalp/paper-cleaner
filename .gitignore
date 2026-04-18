@@ -18,8 +18,17 @@ data/*
 !data/rendered/exports/
 !data/temp/
 !data/metadata/
+data/uploads/**
+data/rendered/previews/**
+data/rendered/exports/**
+data/temp/**
+data/metadata/**
 !data/uploads/.gitkeep
 !data/rendered/previews/.gitkeep
 !data/rendered/exports/.gitkeep
 !data/temp/.gitkeep
 !data/metadata/.gitkeep
+!data/metadata/documents/
+!data/metadata/sessions/
+!data/metadata/documents/.gitkeep
+!data/metadata/sessions/.gitkeep

@@ -1,1 +1,3 @@
-"""Filesystem persistence helpers live here in later phases."""
+from app.storage.storage import FileSystemStorage, storage
+
+__all__ = ["FileSystemStorage", "storage"]

@@ -6,10 +6,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.storage.storage import storage
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
+    storage.ensure_directories()
     app.include_router(api_router, prefix="/api")
 
     static_dir = Path(settings.static_dir)
