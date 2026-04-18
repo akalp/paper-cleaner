@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from PIL import Image, ImageChops
 
 
 def test_upload_generates_detected_document_metadata(
@@ -29,14 +31,19 @@ def test_upload_generates_detected_document_metadata(
     assert document["user_corners"] is None
     assert document["source_url"].startswith("/api/documents/")
     assert document["preview_url"].startswith("/api/documents/")
+    assert document["transformed_preview_url"].startswith("/api/documents/")
+    assert "stage=transformed" in document["transformed_preview_url"]
     assert isinstance(document["preview_version"], str)
 
     source_response = client.get(document["source_url"])
     preview_response = client.get(document["preview_url"])
+    transformed_preview_response = client.get(document["transformed_preview_url"])
     assert source_response.status_code == 200
     assert preview_response.status_code == 200
+    assert transformed_preview_response.status_code == 200
     assert source_response.headers["content-type"] == "image/png"
     assert preview_response.headers["content-type"] == "image/png"
+    assert transformed_preview_response.headers["content-type"] == "image/png"
 
 
 def test_upload_reports_fallback_for_difficult_fixture(
@@ -89,6 +96,110 @@ def test_update_transform_accepts_valid_quadrilateral_and_refreshes_preview_vers
     assert updated_document["preview_version"] != document["preview_version"]
 
 
+def test_update_transform_crop_only_preserves_existing_manual_perspective(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+    manual_corners = [
+        [70, 90],
+        [820, 70],
+        [840, 1130],
+        [90, 1160],
+    ]
+    update_response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={"user_corners": manual_corners},
+    )
+    assert update_response.status_code == 200
+    manually_corrected_document = update_response.json()
+
+    crop_response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 20,
+                "y": 30,
+                "width": manually_corrected_document["crop_rect"]["width"] - 60,
+                "height": manually_corrected_document["crop_rect"]["height"] - 80,
+            }
+        },
+    )
+
+    assert crop_response.status_code == 200
+    cropped_document = crop_response.json()
+    assert cropped_document["user_corners"] == manually_corrected_document["user_corners"]
+    assert cropped_document["crop_rect"] == {
+        "x": 20,
+        "y": 30,
+        "width": manually_corrected_document["crop_rect"]["width"] - 60,
+        "height": manually_corrected_document["crop_rect"]["height"] - 80,
+    }
+
+
+def test_update_transform_rejects_crop_outside_transformed_bounds(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 0,
+                "y": 0,
+                "width": document["crop_rect"]["width"] + 10,
+                "height": document["crop_rect"]["height"],
+            }
+        },
+    )
+
+    assert response.status_code == 400
+    assert "transformed image bounds" in response.json()["detail"]
+
+
+def test_update_transform_crop_changes_preview_dimensions_and_version(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 15,
+                "y": 25,
+                "width": 640,
+                "height": 920,
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    assert updated_document["crop_rect"] == {
+        "x": 15,
+        "y": 25,
+        "width": 640,
+        "height": 920,
+    }
+    assert updated_document["preview_version"] != document["preview_version"]
+
+    preview_image = _load_preview_image(client, updated_document["preview_url"])
+    assert preview_image.size == (640, 920)
+
+    transformed_preview_image = _load_preview_image(
+        client,
+        f"{updated_document['preview_url']}?stage=transformed",
+    )
+    assert transformed_preview_image.size == (
+        document["crop_rect"]["width"],
+        document["crop_rect"]["height"],
+    )
+
+
 def test_update_transform_rejects_invalid_quadrilateral(
     client: TestClient,
     fixture_dir: Path,
@@ -111,6 +222,90 @@ def test_update_transform_rejects_invalid_quadrilateral(
     assert "quadrilateral" in response.json()["detail"]
 
 
+def test_update_tone_persists_values_and_refreshes_preview_version(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "camera-skewed-page.png")
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-tone",
+        json={
+            "tone_preset": "grayscale",
+            "brightness": 10,
+            "contrast": 15,
+        },
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    assert updated_document["tone_preset"] == "grayscale"
+    assert updated_document["brightness"] == 10
+    assert updated_document["contrast"] == 15
+    assert updated_document["preview_version"] != document["preview_version"]
+
+
+def test_update_tone_changes_preview_pixels(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "camera-skewed-page.png")
+    before_preview = _load_preview_image(client, document["preview_url"])
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-tone",
+        json={
+            "tone_preset": "high_contrast_bw",
+            "brightness": 0,
+            "contrast": 20,
+        },
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    after_preview = _load_preview_image(client, updated_document["preview_url"])
+
+    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
+    assert difference.getbbox() is not None
+
+
+def test_high_contrast_bw_brightness_and_contrast_adjustments_change_output(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "camera-skewed-page.png")
+
+    baseline_response = client.post(
+        f"/api/documents/{document['id']}/update-tone",
+        json={
+            "tone_preset": "high_contrast_bw",
+            "brightness": 0,
+            "contrast": 0,
+        },
+    )
+    assert baseline_response.status_code == 200
+    baseline_document = baseline_response.json()
+    baseline_preview = _load_preview_image(client, baseline_document["preview_url"])
+
+    adjusted_response = client.post(
+        f"/api/documents/{document['id']}/update-tone",
+        json={
+            "tone_preset": "high_contrast_bw",
+            "brightness": 20,
+            "contrast": 25,
+        },
+    )
+    assert adjusted_response.status_code == 200
+    adjusted_document = adjusted_response.json()
+    adjusted_preview = _load_preview_image(client, adjusted_document["preview_url"])
+
+    difference = ImageChops.difference(
+        baseline_preview.convert("RGB"),
+        adjusted_preview.convert("RGB"),
+    )
+    assert difference.getbbox() is not None
+
+
 def test_auto_detect_rerun_preserves_user_corners_when_not_applied(
     client: TestClient,
     fixture_dir: Path,
@@ -127,6 +322,19 @@ def test_auto_detect_rerun_preserves_user_corners_when_not_applied(
         json={"user_corners": manual_corners},
     )
     assert update_response.status_code == 200
+    crop_response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 10,
+                "y": 15,
+                "width": update_response.json()["crop_rect"]["width"] - 40,
+                "height": update_response.json()["crop_rect"]["height"] - 60,
+            }
+        },
+    )
+    assert crop_response.status_code == 200
+    cropped_document = crop_response.json()
 
     rerun_response = client.post(
         f"/api/documents/{document['id']}/auto-detect",
@@ -141,6 +349,7 @@ def test_auto_detect_rerun_preserves_user_corners_when_not_applied(
         [845.0, 1145.0],
         [85.0, 1165.0],
     ]
+    assert rerun_document["crop_rect"] == cropped_document["crop_rect"]
 
 
 def test_auto_detect_rerun_can_replace_user_corners(
@@ -159,6 +368,18 @@ def test_auto_detect_rerun_can_replace_user_corners(
         json={"user_corners": manual_corners},
     )
     assert update_response.status_code == 200
+    crop_response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 25,
+                "y": 20,
+                "width": update_response.json()["crop_rect"]["width"] - 80,
+                "height": update_response.json()["crop_rect"]["height"] - 100,
+            }
+        },
+    )
+    assert crop_response.status_code == 200
 
     rerun_response = client.post(
         f"/api/documents/{document['id']}/auto-detect",
@@ -168,6 +389,8 @@ def test_auto_detect_rerun_can_replace_user_corners(
     assert rerun_response.status_code == 200
     rerun_document = rerun_response.json()
     assert rerun_document["user_corners"] == rerun_document["auto_corners"]
+    assert rerun_document["crop_rect"]["x"] == 0
+    assert rerun_document["crop_rect"]["y"] == 0
 
 
 def _upload_document(client: TestClient, path: Path) -> dict[str, object]:
@@ -180,3 +403,10 @@ def _upload_document(client: TestClient, path: Path) -> dict[str, object]:
 
     assert response.status_code == 200
     return response.json()["documents"][0]
+
+
+def _load_preview_image(client: TestClient, preview_url: str) -> Image.Image:
+    response = client.get(preview_url)
+    assert response.status_code == 200
+    with Image.open(BytesIO(response.content)) as preview_image:
+        return preview_image.copy()

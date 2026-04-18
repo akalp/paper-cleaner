@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
 
-from app.schemas.document import AutoDetectDocumentRequest, CropRect, DocumentMetadata, DocumentResponse, UpdateTransformRequest
+from app.schemas.document import (
+    AutoDetectDocumentRequest,
+    CropRect,
+    DocumentMetadata,
+    DocumentResponse,
+    UpdateToneRequest,
+    UpdateTransformRequest,
+)
+from app.services.crop import CropError, full_crop_rect, validate_crop_rect
 from app.schemas.session import SessionMetadata, SessionResponse
 from app.services.detect_document import detect_document_service
 from app.services.perspective import PerspectiveError, normalize_corners, transformed_size
@@ -47,14 +56,18 @@ class DocumentService:
                 normalized_image = self._load_normalized_image(original_path)
                 width, height = normalized_image.size
                 detection_result = detect_document_service.detect(normalized_image)
+                initial_crop_rect = self._full_crop_rect(detection_result.corners)
                 preview_service.generate_document_assets(
                     original_path=original_path,
                     source_destination_path=source_path,
                     preview_destination_path=preview_path,
                     corners=detection_result.corners,
+                    crop_rect=initial_crop_rect,
+                    tone_preset=DocumentMetadata.model_fields["tone_preset"].default,
+                    brightness=0,
+                    contrast=0,
                 )
                 created_paths.append(preview_path)
-                crop_width, crop_height = transformed_size(detection_result.corners)
                 now = storage.utcnow()
 
                 document = DocumentMetadata(
@@ -68,7 +81,7 @@ class DocumentService:
                     normalized_height=height,
                     auto_detect_status=detection_result.status,
                     auto_corners=detection_result.corners,
-                    crop_rect=CropRect(x=0, y=0, width=crop_width, height=crop_height),
+                    crop_rect=initial_crop_rect,
                     updated_at=now,
                 )
                 storage.save_document(document)
@@ -94,12 +107,25 @@ class DocumentService:
 
         preview_path = storage.root_dir / document.preview_path
         if not preview_path.is_file():
-            preview_service.generate_preview(
-                storage.root_dir / document.original_path,
-                preview_path,
-                self._effective_corners(document),
-            )
+            self._regenerate_preview(document)
         return preview_path
+
+    def render_preview_bytes(self, document_id: str, *, include_crop: bool) -> bytes:
+        document = self._get_document(document_id)
+        normalized_image = self._load_normalized_image(storage.root_dir / document.original_path)
+        rendered_preview = render_service.render_preview_image(
+            normalized_image,
+            corners=self._effective_corners(document),
+            crop_rect=document.crop_rect,
+            tone_preset=document.tone_preset,
+            brightness=document.brightness,
+            contrast=document.contrast,
+            include_crop=include_crop,
+        )
+
+        buffer = BytesIO()
+        rendered_preview.save(buffer, format="PNG")
+        return buffer.getvalue()
 
     def get_source_path(self, document_id: str) -> Path:
         document = self._get_document(document_id)
@@ -119,20 +145,24 @@ class DocumentService:
         document = self._get_document(document_id)
         normalized_image = self._load_normalized_image(storage.root_dir / document.original_path)
         detection_result = detect_document_service.detect(normalized_image)
+        original_effective_corners = self._effective_corners(document)
 
         document.auto_corners = detection_result.corners
         document.auto_detect_status = detection_result.status
         if request is not None and request.apply_to_user_corners:
             document.user_corners = detection_result.corners
 
-        document.crop_rect = self._full_crop_rect(self._effective_corners(document))
+        effective_corners = self._effective_corners(document)
+        if effective_corners != original_effective_corners:
+            document.crop_rect = self._full_crop_rect(effective_corners)
+        else:
+            document.crop_rect = self._validated_crop_rect(
+                document.crop_rect,
+                corners=effective_corners,
+            )
         document.updated_at = storage.utcnow()
         storage.save_document(document)
-        preview_service.generate_preview(
-            storage.root_dir / document.original_path,
-            storage.root_dir / document.preview_path,
-            self._effective_corners(document),
-        )
+        self._regenerate_preview(document)
         return session_service.to_document_response(document)
 
     def update_transform(
@@ -141,31 +171,64 @@ class DocumentService:
         request: UpdateTransformRequest,
     ) -> DocumentResponse:
         document = self._get_document(document_id)
+        original_effective_corners = self._effective_corners(document)
+        fields_set = request.model_fields_set
+        corners_changed = False
 
         try:
-            if request.user_corners is None:
-                document.user_corners = None
+            if "user_corners" in fields_set:
+                corners_changed = True
+                if request.user_corners is None:
+                    document.user_corners = None
+                else:
+                    document.user_corners = normalize_corners(
+                        request.user_corners,
+                        width=document.normalized_width,
+                        height=document.normalized_height,
+                    )
+
+            effective_corners = self._effective_corners(document)
+            if "crop_rect" in fields_set:
+                if request.crop_rect is None:
+                    document.crop_rect = self._full_crop_rect(effective_corners)
+                else:
+                    document.crop_rect = self._validated_crop_rect(
+                        request.crop_rect,
+                        corners=effective_corners,
+                    )
+            elif corners_changed and effective_corners != original_effective_corners:
+                document.crop_rect = self._full_crop_rect(effective_corners)
             else:
-                document.user_corners = normalize_corners(
-                    request.user_corners,
-                    width=document.normalized_width,
-                    height=document.normalized_height,
+                document.crop_rect = self._validated_crop_rect(
+                    document.crop_rect,
+                    corners=effective_corners,
                 )
-        except PerspectiveError as exc:
+        except (PerspectiveError, CropError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             ) from exc
 
-        document.crop_rect = self._full_crop_rect(self._effective_corners(document))
         document.updated_at = storage.utcnow()
         storage.save_document(document)
 
-        preview_service.generate_preview(
-            storage.root_dir / document.original_path,
-            storage.root_dir / document.preview_path,
-            self._effective_corners(document),
-        )
+        self._regenerate_preview(document)
+        return session_service.to_document_response(document)
+
+    def update_tone(
+        self,
+        document_id: str,
+        request: UpdateToneRequest,
+    ) -> DocumentResponse:
+        document = self._get_document(document_id)
+
+        document.tone_preset = request.tone_preset
+        document.brightness = request.brightness
+        document.contrast = request.contrast
+        document.updated_at = storage.utcnow()
+        storage.save_document(document)
+
+        self._regenerate_preview(document)
         return session_service.to_document_response(document)
 
     def _get_session_metadata(self, session_id: str) -> SessionMetadata:
@@ -221,7 +284,26 @@ class DocumentService:
 
     def _full_crop_rect(self, corners):
         crop_width, crop_height = transformed_size(corners)
-        return CropRect(x=0, y=0, width=crop_width, height=crop_height)
+        return full_crop_rect(crop_width, crop_height)
+
+    def _validated_crop_rect(self, crop_rect: CropRect, *, corners) -> CropRect:
+        crop_width, crop_height = transformed_size(corners)
+        return validate_crop_rect(
+            crop_rect,
+            image_width=crop_width,
+            image_height=crop_height,
+        )
+
+    def _regenerate_preview(self, document: DocumentMetadata) -> None:
+        preview_service.generate_preview(
+            storage.root_dir / document.original_path,
+            storage.root_dir / document.preview_path,
+            corners=self._effective_corners(document),
+            crop_rect=document.crop_rect,
+            tone_preset=document.tone_preset,
+            brightness=document.brightness,
+            contrast=document.contrast,
+        )
 
     def _cleanup_paths(self, paths: list[Path], session_id: str) -> None:
         for path in reversed(paths):

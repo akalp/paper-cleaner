@@ -3,20 +3,21 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createSession,
   rerunDocumentAutoDetect,
+  updateDocumentTone,
   updateDocumentTransform,
   uploadDocuments,
 } from "../api";
-import type { CropRect, DocumentResponse, Point, SessionResponse } from "../types";
+import type {
+  ActiveDocumentAction,
+  CropRect,
+  DocumentResponse,
+  Point,
+  SessionResponse,
+  TonePreset,
+} from "../types";
 
 let bootstrapSessionPromise: Promise<SessionResponse> | null = null;
 let bootstrappedSession: SessionResponse | null = null;
-
-type DocumentAction = "save" | "reset" | "auto-detect";
-
-interface ActiveDocumentAction {
-  action: DocumentAction;
-  documentId: string;
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -51,7 +52,10 @@ function sortDocuments(documents: DocumentResponse[]): DocumentResponse[] {
   return [...documents].sort((left, right) => left.order_index - right.order_index);
 }
 
-function buildCacheBustedPreviewUrl(previewUrl: string, token: string): string {
+function buildCacheBustedPreviewUrl(
+  previewUrl: string,
+  token: string,
+): string {
   const previewLocation = new URL(previewUrl, window.location.origin);
   previewLocation.searchParams.set("v", token);
   return `${previewLocation.pathname}${previewLocation.search}`;
@@ -119,6 +123,10 @@ export function useWorkspaceSession() {
     return sortDocuments(session?.documents ?? []).map((document) => ({
       ...document,
       preview_url: buildCacheBustedPreviewUrl(document.preview_url, document.preview_version),
+      transformed_preview_url: buildCacheBustedPreviewUrl(
+        document.transformed_preview_url,
+        document.preview_version,
+      ),
     }));
   }, [session]);
   const selectedDocument =
@@ -183,7 +191,7 @@ export function useWorkspaceSession() {
   }
 
   async function savePerspective(documentId: string, userCorners: Point[], cropRect: CropRect) {
-    setActiveDocumentAction({ action: "save", documentId });
+    setActiveDocumentAction({ action: "save-perspective", documentId });
     setDocumentActionError(null);
 
     try {
@@ -200,7 +208,7 @@ export function useWorkspaceSession() {
   }
 
   async function resetPerspective(documentId: string, cropRect: CropRect) {
-    setActiveDocumentAction({ action: "reset", documentId });
+    setActiveDocumentAction({ action: "reset-perspective", documentId });
     setDocumentActionError(null);
 
     try {
@@ -232,6 +240,89 @@ export function useWorkspaceSession() {
     }
   }
 
+  async function saveCrop(
+    documentId: string,
+    userCorners: Point[] | null,
+    cropRect: CropRect,
+  ) {
+    setActiveDocumentAction({ action: "save-crop", documentId });
+    setDocumentActionError(null);
+
+    try {
+      const nextDocument = await updateDocumentTransform(documentId, {
+        user_corners: userCorners,
+        crop_rect: cropRect,
+      });
+      mergeDocument(nextDocument);
+    } catch (error) {
+      setDocumentActionError(getErrorMessage(error, "Could not save crop changes."));
+    } finally {
+      setActiveDocumentAction(null);
+    }
+  }
+
+  async function resetCrop(
+    documentId: string,
+    userCorners: Point[] | null,
+    cropRect: CropRect,
+  ) {
+    setActiveDocumentAction({ action: "reset-crop", documentId });
+    setDocumentActionError(null);
+
+    try {
+      const nextDocument = await updateDocumentTransform(documentId, {
+        user_corners: userCorners,
+        crop_rect: cropRect,
+      });
+      mergeDocument(nextDocument);
+    } catch (error) {
+      setDocumentActionError(getErrorMessage(error, "Could not reset crop."));
+    } finally {
+      setActiveDocumentAction(null);
+    }
+  }
+
+  async function saveTone(
+    documentId: string,
+    tonePreset: TonePreset,
+    brightness: number,
+    contrast: number,
+  ) {
+    setActiveDocumentAction({ action: "save-tone", documentId });
+    setDocumentActionError(null);
+
+    try {
+      const nextDocument = await updateDocumentTone(documentId, {
+        tone_preset: tonePreset,
+        brightness,
+        contrast,
+      });
+      mergeDocument(nextDocument);
+    } catch (error) {
+      setDocumentActionError(getErrorMessage(error, "Could not save tone changes."));
+    } finally {
+      setActiveDocumentAction(null);
+    }
+  }
+
+  async function resetTone(documentId: string) {
+    setActiveDocumentAction({ action: "reset-tone", documentId });
+    setDocumentActionError(null);
+
+    try {
+      const nextDocument = await updateDocumentTone(documentId, {
+        tone_preset: "printer_friendly",
+        brightness: 0,
+        contrast: 0,
+      });
+      mergeDocument(nextDocument);
+    } catch (error) {
+      setDocumentActionError(getErrorMessage(error, "Could not reset tone settings."));
+    } finally {
+      setActiveDocumentAction(null);
+    }
+  }
+
   return {
     session,
     documents,
@@ -248,5 +339,9 @@ export function useWorkspaceSession() {
     savePerspective,
     resetPerspective,
     rerunAutoDetect,
+    saveCrop,
+    resetCrop,
+    saveTone,
+    resetTone,
   };
 }

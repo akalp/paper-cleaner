@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.schemas.document import Point
+from app.schemas.document import CropRect, Point, TonePreset
 from app.services.render import render_service
 
 
@@ -12,7 +12,12 @@ class PreviewService:
         original_path: Path,
         source_destination_path: Path,
         preview_destination_path: Path,
+        *,
         corners: list[Point],
+        crop_rect: CropRect,
+        tone_preset: TonePreset,
+        brightness: int,
+        contrast: int,
     ) -> tuple[int, int]:
         normalized_image = render_service.load_normalized_image(original_path)
         normalized_width, normalized_height = normalized_image.size
@@ -22,15 +27,39 @@ class PreviewService:
             source_destination_path,
         )
         self._save_png(
-            render_service.render_preview_image(normalized_image, corners),
+            render_service.render_preview_image(
+                normalized_image,
+                corners=corners,
+                crop_rect=crop_rect,
+                tone_preset=tone_preset,
+                brightness=brightness,
+                contrast=contrast,
+            ),
             preview_destination_path,
         )
         return normalized_width, normalized_height
 
-    def generate_preview(self, source_path: Path, destination_path: Path, corners: list[Point]) -> None:
+    def generate_preview(
+        self,
+        source_path: Path,
+        destination_path: Path,
+        *,
+        corners: list[Point],
+        crop_rect: CropRect,
+        tone_preset: TonePreset,
+        brightness: int,
+        contrast: int,
+    ) -> None:
         normalized_image = render_service.load_normalized_image(source_path)
         self._save_png(
-            render_service.render_preview_image(normalized_image, corners),
+            render_service.render_preview_image(
+                normalized_image,
+                corners=corners,
+                crop_rect=crop_rect,
+                tone_preset=tone_preset,
+                brightness=brightness,
+                contrast=contrast,
+            ),
             destination_path,
         )
 

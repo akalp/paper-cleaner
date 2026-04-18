@@ -11,6 +11,13 @@ class AutoDetectStatus(StrEnum):
     FALLBACK_FULL_IMAGE = "fallback_full_image"
 
 
+class TonePreset(StrEnum):
+    NATURAL = "natural"
+    GRAYSCALE = "grayscale"
+    HIGH_CONTRAST_BW = "high_contrast_bw"
+    PRINTER_FRIENDLY = "printer_friendly"
+
+
 class CropRect(BaseModel):
     x: int = Field(ge=0)
     y: int = Field(ge=0)
@@ -36,9 +43,9 @@ class DocumentMetadata(BaseModel):
     auto_corners: list[Point] = Field(min_length=4, max_length=4)
     user_corners: list[Point] | None = Field(default=None, min_length=4, max_length=4)
     crop_rect: CropRect
-    tone_preset: str = "printer_friendly"
-    brightness: int = 0
-    contrast: int = 0
+    tone_preset: TonePreset = TonePreset.PRINTER_FRIENDLY
+    brightness: int = Field(default=0, ge=-100, le=100)
+    contrast: int = Field(default=0, ge=-100, le=100)
     erase_paths: list[ErasePath] = Field(default_factory=list)
     updated_at: str
 
@@ -53,12 +60,13 @@ class DocumentResponse(BaseModel):
     auto_corners: list[Point]
     user_corners: list[Point] | None = None
     crop_rect: CropRect
-    tone_preset: str
-    brightness: int
-    contrast: int
+    tone_preset: TonePreset
+    brightness: int = Field(ge=-100, le=100)
+    contrast: int = Field(ge=-100, le=100)
     erase_paths: list[ErasePath]
     source_url: str
     preview_url: str
+    transformed_preview_url: str
     preview_version: str
 
 
@@ -69,6 +77,12 @@ class AutoDetectDocumentRequest(BaseModel):
 class UpdateTransformRequest(BaseModel):
     user_corners: list[Point] | None = Field(default=None, min_length=4, max_length=4)
     crop_rect: CropRect | None = None
+
+
+class UpdateToneRequest(BaseModel):
+    tone_preset: TonePreset
+    brightness: int = Field(ge=-100, le=100)
+    contrast: int = Field(ge=-100, le=100)
 
 
 class UploadDocumentsResponse(BaseModel):

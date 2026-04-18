@@ -34,7 +34,8 @@ Response:
       "id": "doc_1",
       "filename": "page1.jpg",
       "order_index": 0,
-      "preview_url": "/api/documents/doc_1/preview"
+      "preview_url": "/api/documents/doc_1/preview",
+      "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed"
     }
   ]
 }
@@ -75,7 +76,8 @@ Response:
       "brightness": 0,
       "contrast": 0,
       "erase_paths": [],
-      "preview_url": "/api/documents/doc_1/preview"
+      "preview_url": "/api/documents/doc_1/preview",
+      "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed"
     }
   ]
 }
@@ -154,6 +156,11 @@ Response: updated document
 `GET /api/documents/{documentId}/preview`
 
 Returns image content.
+
+Query parameters:
+
+- `stage=final` returns the saved preview with crop and tone applied
+- `stage=transformed` returns the perspective-corrected, uncropped preview used by crop editing
 
 ## Reordering
 

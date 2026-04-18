@@ -24,6 +24,10 @@ function App() {
     savePerspective,
     resetPerspective,
     rerunAutoDetect,
+    saveCrop,
+    resetCrop,
+    saveTone,
+    resetTone,
   } = useWorkspaceSession();
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -85,17 +89,16 @@ function App() {
           onSelectDocument={selectDocument}
         />
         <SelectedPageEditor
-          key={
-            selectedDocument === null
-              ? "selected-page-empty"
-              : `${selectedDocument.id}:${selectedDocument.preview_version}`
-          }
           document={selectedDocument}
           isSessionLoading={isSessionLoading}
           activeDocumentAction={activeDocumentAction}
           onSavePerspective={savePerspective}
           onResetPerspective={resetPerspective}
           onRerunAutoDetect={rerunAutoDetect}
+          onSaveCrop={saveCrop}
+          onResetCrop={resetCrop}
+          onSaveTone={saveTone}
+          onResetTone={resetTone}
         />
       </section>
     </main>

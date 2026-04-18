@@ -1,5 +1,26 @@
 export type Point = [number, number];
 export type AutoDetectStatus = "detected" | "fallback_full_image";
+export const TONE_PRESETS = [
+  "natural",
+  "grayscale",
+  "high_contrast_bw",
+  "printer_friendly",
+] as const;
+export type TonePreset = (typeof TONE_PRESETS)[number];
+export type ErasePathMode = "fill_white";
+export type DocumentMutationAction =
+  | "save-perspective"
+  | "reset-perspective"
+  | "auto-detect"
+  | "save-crop"
+  | "reset-crop"
+  | "save-tone"
+  | "reset-tone";
+
+export interface ActiveDocumentAction {
+  action: DocumentMutationAction;
+  documentId: string;
+}
 
 export interface CropRect {
   x: number;
@@ -10,7 +31,7 @@ export interface CropRect {
 
 export interface ErasePath {
   points: Point[];
-  mode: string;
+  mode: ErasePathMode;
 }
 
 export interface DocumentResponse {
@@ -23,12 +44,13 @@ export interface DocumentResponse {
   auto_corners: Point[];
   user_corners: Point[] | null;
   crop_rect: CropRect;
-  tone_preset: string;
+  tone_preset: TonePreset;
   brightness: number;
   contrast: number;
   erase_paths: ErasePath[];
   source_url: string;
   preview_url: string;
+  transformed_preview_url: string;
   preview_version: string;
 }
 

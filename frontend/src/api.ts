@@ -1,4 +1,10 @@
-import type { CropRect, DocumentResponse, Point, SessionResponse } from "./types";
+import type {
+  CropRect,
+  DocumentResponse,
+  Point,
+  SessionResponse,
+  TonePreset,
+} from "./types";
 
 async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
@@ -55,6 +61,12 @@ interface AutoDetectRequest {
   apply_to_user_corners?: boolean;
 }
 
+interface UpdateToneRequest {
+  tone_preset: TonePreset;
+  brightness: number;
+  contrast: number;
+}
+
 export function updateDocumentTransform(
   documentId: string,
   payload: UpdateTransformRequest,
@@ -73,6 +85,19 @@ export function rerunDocumentAutoDetect(
   payload: AutoDetectRequest = {},
 ): Promise<DocumentResponse> {
   return requestJson<DocumentResponse>(`/api/documents/${documentId}/auto-detect`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateDocumentTone(
+  documentId: string,
+  payload: UpdateToneRequest,
+): Promise<DocumentResponse> {
+  return requestJson<DocumentResponse>(`/api/documents/${documentId}/update-tone`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

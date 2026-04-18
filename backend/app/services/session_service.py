@@ -55,6 +55,7 @@ class SessionService:
             erase_paths=document.erase_paths,
             source_url=f"/api/documents/{document.id}/source",
             preview_url=f"/api/documents/{document.id}/preview",
+            transformed_preview_url=f"/api/documents/{document.id}/preview?stage=transformed",
             preview_version=document.updated_at,
         )
 

@@ -1,5 +1,7 @@
 import type { CropRect, Point } from "../types";
 
+export type CropHandle = "top-left" | "top-right" | "bottom-right" | "bottom-left";
+
 export interface CanvasViewport {
   height: number;
   offsetX: number;
@@ -53,6 +55,25 @@ export function clampPointToImageBounds(
     Math.min(Math.max(point[0], 0), imageWidth),
     Math.min(Math.max(point[1], 0), imageHeight),
   ];
+}
+
+export function clampCropRectToBounds(
+  cropRect: CropRect,
+  imageWidth: number,
+  imageHeight: number,
+  minSize = 24,
+): CropRect {
+  const width = Math.min(Math.max(cropRect.width, minSize), imageWidth);
+  const height = Math.min(Math.max(cropRect.height, minSize), imageHeight);
+  const maxX = Math.max(imageWidth - width, 0);
+  const maxY = Math.max(imageHeight - height, 0);
+
+  return {
+    x: Math.min(Math.max(cropRect.x, 0), maxX),
+    y: Math.min(Math.max(cropRect.y, 0), maxY),
+    width,
+    height,
+  };
 }
 
 export function arePointsEqual(left: Point[], right: Point[]): boolean {
@@ -143,6 +164,77 @@ export function isQuadrilateralValid(points: Point[]): boolean {
 
   return !segmentsIntersect(points[0], points[1], points[2], points[3]) &&
     !segmentsIntersect(points[1], points[2], points[3], points[0]);
+}
+
+export function areCropRectsEqual(left: CropRect, right: CropRect): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+export function resizeCropRectFromHandle(
+  cropRect: CropRect,
+  handle: CropHandle,
+  point: Point,
+  imageWidth: number,
+  imageHeight: number,
+  minSize = 24,
+): CropRect {
+  const clampedPoint = clampPointToImageBounds(point, imageWidth, imageHeight);
+  const leftEdge = cropRect.x;
+  const topEdge = cropRect.y;
+  const rightEdge = cropRect.x + cropRect.width;
+  const bottomEdge = cropRect.y + cropRect.height;
+
+  let nextLeft = leftEdge;
+  let nextTop = topEdge;
+  let nextRight = rightEdge;
+  let nextBottom = bottomEdge;
+
+  if (handle === "top-left") {
+    nextLeft = Math.min(clampedPoint[0], rightEdge - minSize);
+    nextTop = Math.min(clampedPoint[1], bottomEdge - minSize);
+  } else if (handle === "top-right") {
+    nextRight = Math.max(clampedPoint[0], leftEdge + minSize);
+    nextTop = Math.min(clampedPoint[1], bottomEdge - minSize);
+  } else if (handle === "bottom-right") {
+    nextRight = Math.max(clampedPoint[0], leftEdge + minSize);
+    nextBottom = Math.max(clampedPoint[1], topEdge + minSize);
+  } else {
+    nextLeft = Math.min(clampedPoint[0], rightEdge - minSize);
+    nextBottom = Math.max(clampedPoint[1], topEdge + minSize);
+  }
+
+  return clampCropRectToBounds(
+    {
+      x: nextLeft,
+      y: nextTop,
+      width: nextRight - nextLeft,
+      height: nextBottom - nextTop,
+    },
+    imageWidth,
+    imageHeight,
+    minSize,
+  );
+}
+
+export function normalizeCropRect(
+  cropRect: CropRect,
+  imageWidth: number,
+  imageHeight: number,
+  minSize = 24,
+): CropRect {
+  const clampedRect = clampCropRectToBounds(cropRect, imageWidth, imageHeight, minSize);
+
+  return {
+    x: Math.round(clampedRect.x),
+    y: Math.round(clampedRect.y),
+    width: Math.round(clampedRect.width),
+    height: Math.round(clampedRect.height),
+  };
 }
 
 function distance(left: Point, right: Point): number {

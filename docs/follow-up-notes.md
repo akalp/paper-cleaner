@@ -7,6 +7,4 @@
 
 ## Optional Later Improvements
 
-- Add visual or manual QA coverage for corner dragging and preview refresh behavior after more editor phases land.
-- Revisit frontend bundle splitting if the production bundle continues growing beyond the current Phase 4 size.
-- Add a broader backend image-pipeline harness before crop, tone, and erase phases build on the same render path.
+- Add lightweight UI or component-level regression coverage for cross-mode draft preservation and crop-preview loading transitions after more editor phases land.
