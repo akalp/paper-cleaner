@@ -1,0 +1,96 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #17212b;
+  background:
+    radial-gradient(circle at top, rgba(102, 187, 106, 0.18), transparent 38%),
+    linear-gradient(180deg, #f4efe4 0%, #f2f6f7 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 48px 24px;
+}
+
+.hero {
+  max-width: 720px;
+  margin: 0 auto 32px;
+  padding: 32px;
+  border: 1px solid rgba(23, 33, 43, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #537d5d;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.description {
+  margin: 20px 0 0;
+  max-width: 56ch;
+  font-size: 1.05rem;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.status-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 33, 43, 0.08);
+  box-shadow: 0 18px 40px rgba(23, 33, 43, 0.08);
+}
+
+.status-card h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.status-card p {
+  margin: 0;
+  color: #334250;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 24px 16px;
+  }
+
+  .hero {
+    padding: 24px;
+  }
+}
