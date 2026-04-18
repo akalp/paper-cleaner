@@ -116,3 +116,10 @@ Before changing code, read:
 
 If you are changing both frontend and backend behavior, keep API contracts and UI state assumptions synchronized.
 If a requested change conflicts with these documents, prefer the docs unless the user explicitly overrides them.
+
+## Commit message rules
+
+- use conventional commit messages when creating commits
+- do not mention phase names in commit messages
+- do not add unnecessary detail to commit messages
+- if you want to add a commit body, use chained `-m` parameters because `\n` breaks the message content
