@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createSession,
   rerunDocumentAutoDetect,
+  updateDocumentErase,
   updateDocumentTone,
   updateDocumentTransform,
   uploadDocuments,
@@ -11,6 +12,7 @@ import type {
   ActiveDocumentAction,
   CropRect,
   DocumentResponse,
+  ErasePath,
   Point,
   SessionResponse,
   TonePreset,
@@ -323,6 +325,22 @@ export function useWorkspaceSession() {
     }
   }
 
+  async function saveErase(documentId: string, erasePaths: ErasePath[]) {
+    setActiveDocumentAction({ action: "save-erase", documentId });
+    setDocumentActionError(null);
+
+    try {
+      const nextDocument = await updateDocumentErase(documentId, {
+        erase_paths: erasePaths,
+      });
+      mergeDocument(nextDocument);
+    } catch (error) {
+      setDocumentActionError(getErrorMessage(error, "Could not save erase changes."));
+    } finally {
+      setActiveDocumentAction(null);
+    }
+  }
+
   return {
     session,
     documents,
@@ -343,5 +361,6 @@ export function useWorkspaceSession() {
     resetCrop,
     saveTone,
     resetTone,
+    saveErase,
   };
 }

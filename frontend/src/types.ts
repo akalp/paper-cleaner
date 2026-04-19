@@ -15,7 +15,8 @@ export type DocumentMutationAction =
   | "save-crop"
   | "reset-crop"
   | "save-tone"
-  | "reset-tone";
+  | "reset-tone"
+  | "save-erase";
 
 export interface ActiveDocumentAction {
   action: DocumentMutationAction;

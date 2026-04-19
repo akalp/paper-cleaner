@@ -1,16 +1,16 @@
 import {
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from "react";
 
 import type {
   ActiveDocumentAction,
   CropRect,
   DocumentResponse,
+  ErasePath,
   Point,
   TonePreset,
 } from "../types";
@@ -23,14 +23,21 @@ import {
 } from "../utils/perspectiveGeometry";
 import { CropEditorCanvas } from "./CropEditorCanvas";
 import { EmptyPanel } from "./EmptyPanel";
+import { EraseEditorCanvas } from "./EraseEditorCanvas";
 import { PerspectiveEditorCanvas } from "./PerspectiveEditorCanvas";
 import { ToneControls } from "./ToneControls";
 
-type EditorMode = "perspective" | "crop" | "tone";
+type EditorMode = "perspective" | "crop" | "tone" | "erase";
 
 const DEFAULT_TONE_PRESET: TonePreset = "printer_friendly";
 const DEFAULT_TONE_BRIGHTNESS = 0;
 const DEFAULT_TONE_CONTRAST = 0;
+const EMPTY_CROP_RECT: CropRect = {
+  x: 0,
+  y: 0,
+  width: 1,
+  height: 1,
+};
 
 interface SelectedPageEditorProps {
   document: DocumentResponse | null;
@@ -56,6 +63,7 @@ interface SelectedPageEditorProps {
     contrast: number,
   ) => Promise<void>;
   onResetTone: (documentId: string) => Promise<void>;
+  onSaveErase: (documentId: string, erasePaths: ErasePath[]) => Promise<void>;
 }
 
 function getEffectiveCorners(document: DocumentResponse): Point[] {
@@ -89,31 +97,214 @@ function formatAdjustment(value: number): string {
   return `${value}`;
 }
 
-function hydratePerspectiveDraft(
-  document: DocumentResponse,
-  setDraftCorners: Dispatch<SetStateAction<Point[]>>,
-  setActivePerspectiveHandleIndex: Dispatch<SetStateAction<number | null>>,
-) {
-  setDraftCorners(getEffectiveCorners(document));
-  setActivePerspectiveHandleIndex(null);
+function formatEraseCount(count: number): string {
+  if (count === 1) {
+    return "1 region";
+  }
+
+  return `${count} regions`;
 }
 
-function hydrateCropDraft(
-  document: DocumentResponse,
-  setDraftCropRect: Dispatch<SetStateAction<CropRect>>,
-) {
-  setDraftCropRect(document.crop_rect);
+function areErasePathsEqual(left: ErasePath[], right: ErasePath[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftPath, index) => {
+    const rightPath = right[index];
+    if (leftPath.mode !== rightPath.mode || leftPath.points.length !== rightPath.points.length) {
+      return false;
+    }
+
+    return leftPath.points.every((point, pointIndex) => {
+      const candidate = rightPath.points[pointIndex];
+      return point[0] === candidate[0] && point[1] === candidate[1];
+    });
+  });
 }
 
-function hydrateToneDraft(
-  document: DocumentResponse,
-  setDraftTonePreset: Dispatch<SetStateAction<TonePreset>>,
-  setDraftBrightness: Dispatch<SetStateAction<number>>,
-  setDraftContrast: Dispatch<SetStateAction<number>>,
-) {
-  setDraftTonePreset(document.tone_preset);
-  setDraftBrightness(document.brightness);
-  setDraftContrast(document.contrast);
+interface EditorDraftState {
+  activeErasePoints: Point[];
+  activePerspectiveHandleIndex: number | null;
+  brightness: number;
+  contrast: number;
+  corners: Point[];
+  cropRect: CropRect;
+  erasePaths: ErasePath[];
+  tonePreset: TonePreset;
+}
+
+type EditorDraftAction =
+  | { type: "clear" }
+  | { type: "hydrate-all"; document: DocumentResponse }
+  | { type: "hydrate-perspective-crop-erase"; document: DocumentResponse }
+  | { type: "hydrate-crop-erase"; document: DocumentResponse }
+  | { type: "hydrate-tone"; document: DocumentResponse }
+  | { type: "hydrate-erase"; document: DocumentResponse }
+  | { type: "update-corner"; index: number; point: Point }
+  | { type: "set-crop-rect"; cropRect: CropRect }
+  | { type: "set-tone-preset"; tonePreset: TonePreset }
+  | { type: "set-brightness"; brightness: number }
+  | { type: "set-contrast"; contrast: number }
+  | { type: "set-active-perspective-handle"; index: number | null }
+  | { type: "reset-perspective-local"; corners: Point[] }
+  | { type: "reset-crop-local"; cropRect: CropRect }
+  | { type: "reset-tone-local" }
+  | { type: "add-erase-point"; point: Point }
+  | { type: "complete-erase-region" }
+  | { type: "cancel-erase-region" }
+  | { type: "undo-last-erase" }
+  | { type: "clear-erase" };
+
+const EMPTY_DRAFT_STATE: EditorDraftState = {
+  activeErasePoints: [],
+  activePerspectiveHandleIndex: null,
+  brightness: DEFAULT_TONE_BRIGHTNESS,
+  contrast: DEFAULT_TONE_CONTRAST,
+  corners: [],
+  cropRect: EMPTY_CROP_RECT,
+  erasePaths: [],
+  tonePreset: DEFAULT_TONE_PRESET,
+};
+
+function buildDraftFromDocument(document: DocumentResponse): EditorDraftState {
+  return {
+    activeErasePoints: [],
+    activePerspectiveHandleIndex: null,
+    brightness: document.brightness,
+    contrast: document.contrast,
+    corners: getEffectiveCorners(document),
+    cropRect: document.crop_rect,
+    erasePaths: document.erase_paths,
+    tonePreset: document.tone_preset,
+  };
+}
+
+function editorDraftReducer(
+  state: EditorDraftState,
+  action: EditorDraftAction,
+): EditorDraftState {
+  switch (action.type) {
+    case "clear":
+      return EMPTY_DRAFT_STATE;
+    case "hydrate-all":
+      return buildDraftFromDocument(action.document);
+    case "hydrate-perspective-crop-erase":
+      return {
+        ...state,
+        activeErasePoints: [],
+        activePerspectiveHandleIndex: null,
+        corners: getEffectiveCorners(action.document),
+        cropRect: action.document.crop_rect,
+        erasePaths: action.document.erase_paths,
+      };
+    case "hydrate-crop-erase":
+      return {
+        ...state,
+        activeErasePoints: [],
+        cropRect: action.document.crop_rect,
+        erasePaths: action.document.erase_paths,
+      };
+    case "hydrate-tone":
+      return {
+        ...state,
+        brightness: action.document.brightness,
+        contrast: action.document.contrast,
+        tonePreset: action.document.tone_preset,
+      };
+    case "hydrate-erase":
+      return {
+        ...state,
+        activeErasePoints: [],
+        erasePaths: action.document.erase_paths,
+      };
+    case "update-corner":
+      return {
+        ...state,
+        corners: state.corners.map((currentPoint, currentIndex) =>
+          currentIndex === action.index ? action.point : currentPoint,
+        ),
+      };
+    case "set-crop-rect":
+      return {
+        ...state,
+        cropRect: action.cropRect,
+      };
+    case "set-tone-preset":
+      return {
+        ...state,
+        tonePreset: action.tonePreset,
+      };
+    case "set-brightness":
+      return {
+        ...state,
+        brightness: action.brightness,
+      };
+    case "set-contrast":
+      return {
+        ...state,
+        contrast: action.contrast,
+      };
+    case "set-active-perspective-handle":
+      return {
+        ...state,
+        activePerspectiveHandleIndex: action.index,
+      };
+    case "reset-perspective-local":
+      return {
+        ...state,
+        corners: action.corners,
+      };
+    case "reset-crop-local":
+      return {
+        ...state,
+        cropRect: action.cropRect,
+      };
+    case "reset-tone-local":
+      return {
+        ...state,
+        brightness: DEFAULT_TONE_BRIGHTNESS,
+        contrast: DEFAULT_TONE_CONTRAST,
+        tonePreset: DEFAULT_TONE_PRESET,
+      };
+    case "add-erase-point":
+      return {
+        ...state,
+        activeErasePoints: [...state.activeErasePoints, action.point],
+      };
+    case "complete-erase-region":
+      if (state.activeErasePoints.length < 3) {
+        return state;
+      }
+
+      return {
+        ...state,
+        activeErasePoints: [],
+        erasePaths: [
+          ...state.erasePaths,
+          {
+            points: state.activeErasePoints,
+            mode: "fill_white",
+          },
+        ],
+      };
+    case "cancel-erase-region":
+      return {
+        ...state,
+        activeErasePoints: [],
+      };
+    case "undo-last-erase":
+      return {
+        ...state,
+        erasePaths: state.erasePaths.slice(0, -1),
+      };
+    case "clear-erase":
+      return {
+        ...state,
+        activeErasePoints: [],
+        erasePaths: [],
+      };
+  }
 }
 
 export function SelectedPageEditor({
@@ -127,21 +318,10 @@ export function SelectedPageEditor({
   onResetCrop,
   onSaveTone,
   onResetTone,
+  onSaveErase,
 }: SelectedPageEditorProps) {
   const [editorMode, setEditorMode] = useState<EditorMode>("perspective");
-  const [draftCorners, setDraftCorners] = useState<Point[]>([]);
-  const [draftCropRect, setDraftCropRect] = useState<CropRect>({
-    x: 0,
-    y: 0,
-    width: 1,
-    height: 1,
-  });
-  const [draftTonePreset, setDraftTonePreset] = useState<TonePreset>(DEFAULT_TONE_PRESET);
-  const [draftBrightness, setDraftBrightness] = useState(DEFAULT_TONE_BRIGHTNESS);
-  const [draftContrast, setDraftContrast] = useState(DEFAULT_TONE_CONTRAST);
-  const [activePerspectiveHandleIndex, setActivePerspectiveHandleIndex] = useState<number | null>(
-    null,
-  );
+  const [draft, dispatchDraft] = useReducer(editorDraftReducer, EMPTY_DRAFT_STATE);
   const previousDocumentIdRef = useRef<string | null>(null);
   const previousPreviewVersionRef = useRef<string | null>(null);
 
@@ -154,12 +334,7 @@ export function SelectedPageEditor({
 
   useEffect(() => {
     if (document === null) {
-      setDraftCorners([]);
-      setDraftCropRect({ x: 0, y: 0, width: 1, height: 1 });
-      setDraftTonePreset(DEFAULT_TONE_PRESET);
-      setDraftBrightness(DEFAULT_TONE_BRIGHTNESS);
-      setDraftContrast(DEFAULT_TONE_CONTRAST);
-      setActivePerspectiveHandleIndex(null);
+      dispatchDraft({ type: "clear" });
       previousDocumentIdRef.current = null;
       previousPreviewVersionRef.current = null;
       return;
@@ -173,34 +348,24 @@ export function SelectedPageEditor({
       activeDocumentAction !== null && activeDocumentAction.documentId === document.id;
 
     if (isNewSelection) {
-      hydratePerspectiveDraft(document, setDraftCorners, setActivePerspectiveHandleIndex);
-      hydrateCropDraft(document, setDraftCropRect);
-      hydrateToneDraft(
-        document,
-        setDraftTonePreset,
-        setDraftBrightness,
-        setDraftContrast,
-      );
+      dispatchDraft({ type: "hydrate-all", document });
     } else if (hasNewServerState && isActiveDocumentAction) {
       switch (activeDocumentAction.action) {
         case "save-perspective":
         case "reset-perspective":
         case "auto-detect":
-          hydratePerspectiveDraft(document, setDraftCorners, setActivePerspectiveHandleIndex);
-          hydrateCropDraft(document, setDraftCropRect);
+          dispatchDraft({ type: "hydrate-perspective-crop-erase", document });
           break;
         case "save-crop":
         case "reset-crop":
-          hydrateCropDraft(document, setDraftCropRect);
+          dispatchDraft({ type: "hydrate-crop-erase", document });
           break;
         case "save-tone":
         case "reset-tone":
-          hydrateToneDraft(
-            document,
-            setDraftTonePreset,
-            setDraftBrightness,
-            setDraftContrast,
-          );
+          dispatchDraft({ type: "hydrate-tone", document });
+          break;
+        case "save-erase":
+          dispatchDraft({ type: "hydrate-erase", document });
           break;
       }
     }
@@ -211,17 +376,19 @@ export function SelectedPageEditor({
 
   const hasUnsavedPerspectiveChanges =
     document !== null &&
-    draftCorners.length === 4 &&
-    !arePointsEqual(draftCorners, effectiveCorners);
+    draft.corners.length === 4 &&
+    !arePointsEqual(draft.corners, effectiveCorners);
   const isPerspectiveDraftValid =
-    draftCorners.length === 4 && isQuadrilateralValid(draftCorners);
+    draft.corners.length === 4 && isQuadrilateralValid(draft.corners);
   const hasUnsavedCropChanges =
-    document !== null && !areCropRectsEqual(draftCropRect, document.crop_rect);
+    document !== null && !areCropRectsEqual(draft.cropRect, document.crop_rect);
   const hasUnsavedToneChanges =
     document !== null &&
-    (draftTonePreset !== document.tone_preset ||
-      draftBrightness !== document.brightness ||
-      draftContrast !== document.contrast);
+    (draft.tonePreset !== document.tone_preset ||
+      draft.brightness !== document.brightness ||
+      draft.contrast !== document.contrast);
+  const hasUnsavedEraseChanges =
+    document !== null && !areErasePathsEqual(draft.erasePaths, document.erase_paths);
   const isActionPending =
     document !== null &&
     activeDocumentAction !== null &&
@@ -232,22 +399,54 @@ export function SelectedPageEditor({
     document.brightness === DEFAULT_TONE_BRIGHTNESS &&
     document.contrast === DEFAULT_TONE_CONTRAST;
   const isCropAtFullBounds =
-    document !== null && fullCropRect !== null && areCropRectsEqual(document.crop_rect, fullCropRect);
+    document !== null &&
+    fullCropRect !== null &&
+    areCropRectsEqual(document.crop_rect, fullCropRect);
+  const hasActiveEraseRegion = draft.activeErasePoints.length > 0;
+  const canCompleteEraseRegion = draft.activeErasePoints.length >= 3;
 
   function updateCorner(index: number, point: Point) {
-    setDraftCorners((currentCorners) =>
-      currentCorners.map((currentPoint, currentIndex) =>
-        currentIndex === index ? point : currentPoint,
-      ),
-    );
+    dispatchDraft({ type: "update-corner", index, point });
   }
 
-  async function handleSavePerspective() {
-    if (document === null || draftCorners.length !== 4 || !isPerspectiveDraftValid) {
+  function handleAddErasePoint(point: Point) {
+    dispatchDraft({ type: "add-erase-point", point });
+  }
+
+  function handleCompleteEraseRegion() {
+    if (!canCompleteEraseRegion) {
       return;
     }
 
-    await onSavePerspective(document.id, draftCorners, buildFullCropRect(draftCorners));
+    dispatchDraft({ type: "complete-erase-region" });
+  }
+
+  function handleCancelEraseRegion() {
+    dispatchDraft({ type: "cancel-erase-region" });
+  }
+
+  function handleUndoLastErase() {
+    dispatchDraft({ type: "undo-last-erase" });
+  }
+
+  function handleClearAllErase() {
+    dispatchDraft({ type: "clear-erase" });
+  }
+
+  function handleResetErase() {
+    if (document === null) {
+      return;
+    }
+
+    dispatchDraft({ type: "hydrate-erase", document });
+  }
+
+  async function handleSavePerspective() {
+    if (document === null || draft.corners.length !== 4 || !isPerspectiveDraftValid) {
+      return;
+    }
+
+    await onSavePerspective(document.id, draft.corners, buildFullCropRect(draft.corners));
   }
 
   async function handleResetPerspective() {
@@ -255,11 +454,11 @@ export function SelectedPageEditor({
       return;
     }
 
-    setDraftCorners(document.auto_corners);
+    dispatchDraft({ type: "reset-perspective-local", corners: document.auto_corners });
 
     if (document.user_corners !== null) {
       const resetCropRect = buildFullCropRect(document.auto_corners);
-      setDraftCropRect(resetCropRect);
+      dispatchDraft({ type: "reset-crop-local", cropRect: resetCropRect });
       await onResetPerspective(document.id, resetCropRect);
     }
   }
@@ -280,7 +479,7 @@ export function SelectedPageEditor({
     await onSaveCrop(
       document.id,
       document.user_corners,
-      normalizeCropRect(draftCropRect, fullCropRect.width, fullCropRect.height),
+      normalizeCropRect(draft.cropRect, fullCropRect.width, fullCropRect.height),
     );
   }
 
@@ -289,7 +488,7 @@ export function SelectedPageEditor({
       return;
     }
 
-    setDraftCropRect(fullCropRect);
+    dispatchDraft({ type: "reset-crop-local", cropRect: fullCropRect });
 
     if (!isCropAtFullBounds) {
       await onResetCrop(document.id, document.user_corners, fullCropRect);
@@ -301,7 +500,7 @@ export function SelectedPageEditor({
       return;
     }
 
-    await onSaveTone(document.id, draftTonePreset, draftBrightness, draftContrast);
+    await onSaveTone(document.id, draft.tonePreset, draft.brightness, draft.contrast);
   }
 
   async function handleResetTone() {
@@ -309,13 +508,19 @@ export function SelectedPageEditor({
       return;
     }
 
-    setDraftTonePreset(DEFAULT_TONE_PRESET);
-    setDraftBrightness(DEFAULT_TONE_BRIGHTNESS);
-    setDraftContrast(DEFAULT_TONE_CONTRAST);
+    dispatchDraft({ type: "reset-tone-local" });
 
     if (!isToneAtDefault) {
       await onResetTone(document.id);
     }
+  }
+
+  async function handleSaveErase() {
+    if (document === null || hasActiveEraseRegion) {
+      return;
+    }
+
+    await onSaveErase(document.id, draft.erasePaths);
   }
 
   function renderEditorSurface() {
@@ -336,7 +541,7 @@ export function SelectedPageEditor({
               <h3>{document.filename}</h3>
             </div>
             <span className="editor-mode-badge">
-              {Math.round(draftCropRect.width)} × {Math.round(draftCropRect.height)}
+              {Math.round(draft.cropRect.width)} × {Math.round(draft.cropRect.height)}
             </span>
           </div>
 
@@ -346,12 +551,14 @@ export function SelectedPageEditor({
           </p>
 
           <CropEditorCanvas
-            cropRect={draftCropRect}
+            cropRect={draft.cropRect}
             disabled={isActionPending}
             imageHeight={fullCropRect.height}
             imageUrl={document.transformed_preview_url}
             imageWidth={fullCropRect.width}
-            onCropRectChange={setDraftCropRect}
+            onCropRectChange={(cropRect) => {
+              dispatchDraft({ type: "set-crop-rect", cropRect });
+            }}
           />
 
           <div className="editor-actions">
@@ -393,7 +600,7 @@ export function SelectedPageEditor({
               <h3>{document.filename}</h3>
             </div>
             <span className="editor-mode-badge">
-              {formatTonePresetLabel(draftTonePreset)}
+              {formatTonePresetLabel(draft.tonePreset)}
             </span>
           </div>
 
@@ -403,11 +610,11 @@ export function SelectedPageEditor({
           </p>
 
           <ToneControls
-            brightness={draftBrightness}
-            contrast={draftContrast}
+            brightness={draft.brightness}
+            contrast={draft.contrast}
             disabled={isActionPending}
             hasUnsavedChanges={hasUnsavedToneChanges}
-            preset={draftTonePreset}
+            preset={draft.tonePreset}
             resetDisabled={isActionPending || (isToneAtDefault && !hasUnsavedToneChanges)}
             resetLabel={
               activeDocumentAction?.action === "reset-tone" && isActionPending
@@ -420,9 +627,15 @@ export function SelectedPageEditor({
                 ? "Saving..."
                 : "Save Tone"
             }
-            onBrightnessChange={setDraftBrightness}
-            onContrastChange={setDraftContrast}
-            onPresetChange={setDraftTonePreset}
+            onBrightnessChange={(brightness) => {
+              dispatchDraft({ type: "set-brightness", brightness });
+            }}
+            onContrastChange={(contrast) => {
+              dispatchDraft({ type: "set-contrast", contrast });
+            }}
+            onPresetChange={(tonePreset) => {
+              dispatchDraft({ type: "set-tone-preset", tonePreset });
+            }}
             onReset={() => {
               void handleResetTone();
             }}
@@ -430,6 +643,101 @@ export function SelectedPageEditor({
               void handleSaveTone();
             }}
           />
+        </>
+      );
+    }
+
+    if (editorMode === "erase") {
+      return (
+        <>
+          <div className="editor-section-heading">
+            <div>
+              <p className="panel-kicker">Erase editor</p>
+              <h3>{document.filename}</h3>
+            </div>
+            <span className="editor-mode-badge">
+              {formatEraseCount(draft.erasePaths.length)}
+            </span>
+          </div>
+
+          <p className="editor-instructions">
+            Click the corrected preview to place polygon points. Complete each region
+            when it encloses the content you want filled white, then save to update the
+            backend preview.
+          </p>
+
+          <EraseEditorCanvas
+            activePath={draft.activeErasePoints}
+            disabled={isActionPending}
+            erasePaths={draft.erasePaths}
+            imageHeight={document.crop_rect.height}
+            imageUrl={document.preview_url}
+            imageWidth={document.crop_rect.width}
+            onAddPoint={handleAddErasePoint}
+          />
+
+          <p className="erase-editor-status">
+            {hasActiveEraseRegion
+              ? `Region in progress: ${draft.activeErasePoints.length} point${draft.activeErasePoints.length === 1 ? "" : "s"}.`
+              : hasUnsavedEraseChanges
+                ? "Erase overlays are local until you save them."
+                : "Erase regions match the saved backend state."}
+          </p>
+
+          <div className="editor-actions">
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || !canCompleteEraseRegion}
+              onClick={handleCompleteEraseRegion}
+            >
+              Complete Region
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || !hasActiveEraseRegion}
+              onClick={handleCancelEraseRegion}
+            >
+              Cancel Region
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || draft.erasePaths.length === 0}
+              onClick={handleUndoLastErase}
+            >
+              Undo Last Erase
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || (draft.erasePaths.length === 0 && !hasActiveEraseRegion)}
+              onClick={handleClearAllErase}
+            >
+              Clear All
+            </button>
+            <button
+              className="primary-action"
+              type="button"
+              disabled={isActionPending || hasActiveEraseRegion || !hasUnsavedEraseChanges}
+              onClick={() => {
+                void handleSaveErase();
+              }}
+            >
+              {activeDocumentAction?.action === "save-erase" && isActionPending
+                ? "Saving..."
+                : "Save Erase"}
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || (!hasUnsavedEraseChanges && !hasActiveEraseRegion)}
+              onClick={handleResetErase}
+            >
+              Reset Erase
+            </button>
+          </div>
         </>
       );
     }
@@ -452,13 +760,15 @@ export function SelectedPageEditor({
         </p>
 
         <PerspectiveEditorCanvas
-          activeHandleIndex={activePerspectiveHandleIndex}
-          corners={draftCorners}
+          activeHandleIndex={draft.activePerspectiveHandleIndex}
+          corners={draft.corners}
           disabled={isActionPending}
           imageHeight={document.normalized_height}
           imageUrl={document.source_url}
           imageWidth={document.normalized_width}
-          onActiveHandleChange={setActivePerspectiveHandleIndex}
+          onActiveHandleChange={(index) => {
+            dispatchDraft({ type: "set-active-perspective-handle", index });
+          }}
           onCornerChange={updateCorner}
         />
 
@@ -517,8 +827,8 @@ export function SelectedPageEditor({
           <p className="panel-kicker">Editor</p>
           <h2>Page cleanup</h2>
           <p className="editor-mode-summary">
-            Perspective, crop, and tone settings stay independent for each uploaded
-            page.
+            Perspective, crop, tone, and erase settings stay independent for each
+            uploaded page.
           </p>
         </div>
 
@@ -556,6 +866,17 @@ export function SelectedPageEditor({
           >
             Tone
           </button>
+          <button
+            className={`tool-mode-button${editorMode === "erase" ? " is-active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={editorMode === "erase"}
+            onClick={() => {
+              setEditorMode("erase");
+            }}
+          >
+            Erase
+          </button>
         </div>
       </div>
 
@@ -569,7 +890,7 @@ export function SelectedPageEditor({
         <EmptyPanel
           large
           title="No page selected"
-          message="Upload pages first, then refine perspective, crop, and tone here."
+          message="Upload pages first, then refine perspective, crop, tone, and erase here."
         />
       ) : (
         <article className="editor-card editor-card--phase5">
@@ -637,6 +958,10 @@ export function SelectedPageEditor({
                   {formatAdjustment(document.contrast)}
                 </dd>
               </div>
+              <div>
+                <dt>Erase regions</dt>
+                <dd>{document.erase_paths.length}</dd>
+              </div>
             </dl>
           </div>
         </article>
@@ -651,11 +976,8 @@ interface PreviewPaneProps {
 }
 
 function PreviewPane({ filename, previewUrl }: PreviewPaneProps) {
-  const [hasPreviewError, setHasPreviewError] = useState(false);
-
-  useEffect(() => {
-    setHasPreviewError(false);
-  }, [previewUrl]);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+  const hasPreviewError = failedPreviewUrl === previewUrl;
 
   return hasPreviewError ? (
     <div className="preview-error" role="alert">
@@ -677,7 +999,7 @@ function PreviewPane({ filename, previewUrl }: PreviewPaneProps) {
         className="preview-image"
         src={previewUrl}
         alt={`Transformed preview of ${filename}`}
-        onError={() => setHasPreviewError(true)}
+        onError={() => setFailedPreviewUrl(previewUrl)}
       />
     </>
   );

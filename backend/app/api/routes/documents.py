@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from app.schemas.document import (
     AutoDetectDocumentRequest,
     DocumentResponse,
+    UpdateEraseRequest,
     UpdateToneRequest,
     UpdateTransformRequest,
 )
@@ -54,3 +55,11 @@ async def update_document_tone(
     request: UpdateToneRequest,
 ) -> DocumentResponse:
     return document_service.update_tone(document_id, request)
+
+
+@router.post("/documents/{document_id}/erase", response_model=DocumentResponse)
+async def update_document_erase(
+    document_id: str,
+    request: UpdateEraseRequest,
+) -> DocumentResponse:
+    return document_service.update_erase(document_id, request)

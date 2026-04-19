@@ -14,11 +14,11 @@ export function WorkspaceHeader({
   return (
     <header className="workspace-header">
       <div>
-        <p className="workspace-kicker">Phase 5 Workspace</p>
+        <p className="workspace-kicker">Phase 6 Workspace</p>
         <h1>paper-cleaner</h1>
         <p className="workspace-description">
           Upload pages, correct perspective, refine crop on the transformed preview,
-          and tune print-focused tone settings one page at a time.
+          tune print-focused tone settings, and erase unwanted regions one page at a time.
         </p>
       </div>
 

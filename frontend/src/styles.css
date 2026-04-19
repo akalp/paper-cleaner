@@ -643,6 +643,11 @@ img {
   color: #55635b;
 }
 
+.erase-editor-status {
+  margin: 0;
+  color: #55635b;
+}
+
 @media (max-width: 1080px) {
   .workspace {
     padding: 20px;

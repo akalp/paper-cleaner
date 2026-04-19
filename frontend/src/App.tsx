@@ -28,6 +28,7 @@ function App() {
     resetCrop,
     saveTone,
     resetTone,
+    saveErase,
   } = useWorkspaceSession();
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -99,6 +100,7 @@ function App() {
           onResetCrop={resetCrop}
           onSaveTone={saveTone}
           onResetTone={resetTone}
+          onSaveErase={saveErase}
         />
       </section>
     </main>

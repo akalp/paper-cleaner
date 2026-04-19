@@ -306,6 +306,138 @@ def test_high_contrast_bw_brightness_and_contrast_adjustments_change_output(
     assert difference.getbbox() is not None
 
 
+def test_update_erase_persists_paths_and_refreshes_preview_version(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+
+    response = client.post(
+        f"/api/documents/{document['id']}/erase",
+        json={"erase_paths": [_build_center_erase_path(document)]},
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    assert updated_document["preview_version"] != document["preview_version"]
+    assert len(updated_document["erase_paths"]) == 1
+    assert updated_document["erase_paths"][0]["mode"] == "fill_white"
+    assert len(updated_document["erase_paths"][0]["points"]) == 4
+
+
+def test_update_erase_changes_final_preview_pixels(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+    before_preview = _load_preview_image(client, document["preview_url"])
+
+    response = client.post(
+        f"/api/documents/{document['id']}/erase",
+        json={"erase_paths": [_build_center_erase_path(document)]},
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    after_preview = _load_preview_image(client, updated_document["preview_url"])
+
+    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
+    assert difference.getbbox() is not None
+
+
+def test_update_erase_rejects_out_of_bounds_points(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+    crop_rect = document["crop_rect"]
+
+    response = client.post(
+        f"/api/documents/{document['id']}/erase",
+        json={
+            "erase_paths": [
+                {
+                    "points": [
+                        [10, 10],
+                        [crop_rect["width"] + 5, 10],
+                        [crop_rect["width"] + 5, 40],
+                    ],
+                    "mode": "fill_white",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cropped image bounds" in response.json()["detail"]
+
+
+def test_transformed_preview_remains_unchanged_by_erase_paths(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "camera-skewed-page.png")
+    before_preview = _load_preview_image(client, document["transformed_preview_url"])
+
+    response = client.post(
+        f"/api/documents/{document['id']}/erase",
+        json={"erase_paths": [_build_center_erase_path(document)]},
+    )
+
+    assert response.status_code == 200
+    updated_document = response.json()
+    after_preview = _load_preview_image(client, updated_document["transformed_preview_url"])
+
+    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
+    assert difference.getbbox() is None
+
+
+def test_update_transform_crop_clears_erase_paths(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+    erased_document = _save_erase_path(client, document)
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "crop_rect": {
+                "x": 20,
+                "y": 20,
+                "width": erased_document["crop_rect"]["width"] - 40,
+                "height": erased_document["crop_rect"]["height"] - 40,
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["erase_paths"] == []
+
+
+def test_update_transform_perspective_clears_erase_paths(
+    client: TestClient,
+    fixture_dir: Path,
+) -> None:
+    document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
+    _save_erase_path(client, document)
+
+    response = client.post(
+        f"/api/documents/{document['id']}/update-transform",
+        json={
+            "user_corners": [
+                [60, 80],
+                [830, 70],
+                [845, 1145],
+                [75, 1160],
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["erase_paths"] == []
+
+
 def test_auto_detect_rerun_preserves_user_corners_when_not_applied(
     client: TestClient,
     fixture_dir: Path,
@@ -403,6 +535,34 @@ def _upload_document(client: TestClient, path: Path) -> dict[str, object]:
 
     assert response.status_code == 200
     return response.json()["documents"][0]
+
+
+def _save_erase_path(
+    client: TestClient,
+    document: dict[str, object],
+) -> dict[str, object]:
+    response = client.post(
+        f"/api/documents/{document['id']}/erase",
+        json={"erase_paths": [_build_center_erase_path(document)]},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def _build_center_erase_path(document: dict[str, object]) -> dict[str, object]:
+    crop_rect = document["crop_rect"]
+    width = crop_rect["width"]
+    height = crop_rect["height"]
+
+    return {
+        "points": [
+            [width * 0.2, height * 0.2],
+            [width * 0.8, height * 0.2],
+            [width * 0.8, height * 0.8],
+            [width * 0.2, height * 0.8],
+        ],
+        "mode": "fill_white",
+    }
 
 
 def _load_preview_image(client: TestClient, preview_url: str) -> Image.Image:

@@ -1,6 +1,7 @@
 import type {
   CropRect,
   DocumentResponse,
+  ErasePath,
   Point,
   SessionResponse,
   TonePreset,
@@ -67,6 +68,10 @@ interface UpdateToneRequest {
   contrast: number;
 }
 
+interface UpdateEraseRequest {
+  erase_paths: ErasePath[];
+}
+
 export function updateDocumentTransform(
   documentId: string,
   payload: UpdateTransformRequest,
@@ -98,6 +103,19 @@ export function updateDocumentTone(
   payload: UpdateToneRequest,
 ): Promise<DocumentResponse> {
   return requestJson<DocumentResponse>(`/api/documents/${documentId}/update-tone`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateDocumentErase(
+  documentId: string,
+  payload: UpdateEraseRequest,
+): Promise<DocumentResponse> {
+  return requestJson<DocumentResponse>(`/api/documents/${documentId}/erase`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

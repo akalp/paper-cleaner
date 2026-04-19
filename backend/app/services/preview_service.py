@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.schemas.document import CropRect, Point, TonePreset
+from app.schemas.document import CropRect, ErasePath, Point, TonePreset
 from app.services.render import render_service
 
 
@@ -18,6 +18,7 @@ class PreviewService:
         tone_preset: TonePreset,
         brightness: int,
         contrast: int,
+        erase_paths: list[ErasePath] | None = None,
     ) -> tuple[int, int]:
         normalized_image = render_service.load_normalized_image(original_path)
         normalized_width, normalized_height = normalized_image.size
@@ -34,6 +35,7 @@ class PreviewService:
                 tone_preset=tone_preset,
                 brightness=brightness,
                 contrast=contrast,
+                erase_paths=erase_paths,
             ),
             preview_destination_path,
         )
@@ -49,6 +51,7 @@ class PreviewService:
         tone_preset: TonePreset,
         brightness: int,
         contrast: int,
+        erase_paths: list[ErasePath] | None = None,
     ) -> None:
         normalized_image = render_service.load_normalized_image(source_path)
         self._save_png(
@@ -59,6 +62,7 @@ class PreviewService:
                 tone_preset=tone_preset,
                 brightness=brightness,
                 contrast=contrast,
+                erase_paths=erase_paths,
             ),
             destination_path,
         )

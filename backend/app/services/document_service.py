@@ -11,10 +11,12 @@ from app.schemas.document import (
     CropRect,
     DocumentMetadata,
     DocumentResponse,
+    UpdateEraseRequest,
     UpdateToneRequest,
     UpdateTransformRequest,
 )
 from app.services.crop import CropError, full_crop_rect, validate_crop_rect
+from app.services.erase import EraseError, erase_service
 from app.schemas.session import SessionMetadata, SessionResponse
 from app.services.detect_document import detect_document_service
 from app.services.perspective import PerspectiveError, normalize_corners, transformed_size
@@ -66,6 +68,7 @@ class DocumentService:
                     tone_preset=DocumentMetadata.model_fields["tone_preset"].default,
                     brightness=0,
                     contrast=0,
+                    erase_paths=[],
                 )
                 created_paths.append(preview_path)
                 now = storage.utcnow()
@@ -120,6 +123,7 @@ class DocumentService:
             tone_preset=document.tone_preset,
             brightness=document.brightness,
             contrast=document.contrast,
+            erase_paths=document.erase_paths if include_crop else [],
             include_crop=include_crop,
         )
 
@@ -146,6 +150,7 @@ class DocumentService:
         normalized_image = self._load_normalized_image(storage.root_dir / document.original_path)
         detection_result = detect_document_service.detect(normalized_image)
         original_effective_corners = self._effective_corners(document)
+        original_crop_rect = document.crop_rect.model_copy()
 
         document.auto_corners = detection_result.corners
         document.auto_detect_status = detection_result.status
@@ -160,6 +165,8 @@ class DocumentService:
                 document.crop_rect,
                 corners=effective_corners,
             )
+        if effective_corners != original_effective_corners or document.crop_rect != original_crop_rect:
+            self._clear_erase_paths(document)
         document.updated_at = storage.utcnow()
         storage.save_document(document)
         self._regenerate_preview(document)
@@ -172,6 +179,7 @@ class DocumentService:
     ) -> DocumentResponse:
         document = self._get_document(document_id)
         original_effective_corners = self._effective_corners(document)
+        original_crop_rect = document.crop_rect.model_copy()
         fields_set = request.model_fields_set
         corners_changed = False
 
@@ -209,9 +217,39 @@ class DocumentService:
                 detail=str(exc),
             ) from exc
 
+        if (
+            self._effective_corners(document) != original_effective_corners
+            or document.crop_rect != original_crop_rect
+        ):
+            self._clear_erase_paths(document)
+
         document.updated_at = storage.utcnow()
         storage.save_document(document)
 
+        self._regenerate_preview(document)
+        return session_service.to_document_response(document)
+
+    def update_erase(
+        self,
+        document_id: str,
+        request: UpdateEraseRequest,
+    ) -> DocumentResponse:
+        document = self._get_document(document_id)
+
+        try:
+            document.erase_paths = erase_service.validate_erase_paths(
+                request.erase_paths,
+                image_width=document.crop_rect.width,
+                image_height=document.crop_rect.height,
+            )
+        except EraseError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+        document.updated_at = storage.utcnow()
+        storage.save_document(document)
         self._regenerate_preview(document)
         return session_service.to_document_response(document)
 
@@ -303,7 +341,12 @@ class DocumentService:
             tone_preset=document.tone_preset,
             brightness=document.brightness,
             contrast=document.contrast,
+            erase_paths=document.erase_paths,
         )
+
+    def _clear_erase_paths(self, document: DocumentMetadata) -> None:
+        if document.erase_paths:
+            document.erase_paths = []
 
     def _cleanup_paths(self, paths: list[Path], session_id: str) -> None:
         for path in reversed(paths):

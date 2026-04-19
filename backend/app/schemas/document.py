@@ -18,6 +18,10 @@ class TonePreset(StrEnum):
     PRINTER_FRIENDLY = "printer_friendly"
 
 
+class ErasePathMode(StrEnum):
+    FILL_WHITE = "fill_white"
+
+
 class CropRect(BaseModel):
     x: int = Field(ge=0)
     y: int = Field(ge=0)
@@ -26,8 +30,8 @@ class CropRect(BaseModel):
 
 
 class ErasePath(BaseModel):
-    points: list[Point]
-    mode: str = "fill_white"
+    points: list[Point] = Field(min_length=3)
+    mode: ErasePathMode = ErasePathMode.FILL_WHITE
 
 
 class DocumentMetadata(BaseModel):
@@ -83,6 +87,10 @@ class UpdateToneRequest(BaseModel):
     tone_preset: TonePreset
     brightness: int = Field(ge=-100, le=100)
     contrast: int = Field(ge=-100, le=100)
+
+
+class UpdateEraseRequest(BaseModel):
+    erase_paths: list[ErasePath] = Field(default_factory=list)
 
 
 class UploadDocumentsResponse(BaseModel):

@@ -39,20 +39,18 @@ interface CropEditorCanvasProps {
 interface LoadedImageState {
   hasError: boolean;
   image: HTMLImageElement | null;
+  loadedUrl: string | null;
 }
 
 function useLoadedImage(url: string): LoadedImageState {
   const [state, setState] = useState<LoadedImageState>({
     image: null,
     hasError: false,
+    loadedUrl: null,
   });
 
   useEffect(() => {
     let isMounted = true;
-    setState({
-      image: null,
-      hasError: false,
-    });
     const image = new window.Image();
 
     image.onload = () => {
@@ -63,6 +61,7 @@ function useLoadedImage(url: string): LoadedImageState {
       setState({
         image,
         hasError: false,
+        loadedUrl: url,
       });
     };
 
@@ -74,6 +73,7 @@ function useLoadedImage(url: string): LoadedImageState {
       setState({
         image: null,
         hasError: true,
+        loadedUrl: url,
       });
     };
 
@@ -125,8 +125,14 @@ export function CropEditorCanvas({
 }: CropEditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(FALLBACK_CONTAINER_WIDTH);
-  const [activeHandle, setActiveHandle] = useState<CropHandle | null>(null);
-  const { image, hasError } = useLoadedImage(imageUrl);
+  const [activeHandleState, setActiveHandleState] = useState<{
+    handle: CropHandle | null;
+    imageUrl: string;
+  }>({
+    handle: null,
+    imageUrl,
+  });
+  const loadedImage = useLoadedImage(imageUrl);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -148,10 +154,6 @@ export function CropEditorCanvas({
     };
   }, []);
 
-  useEffect(() => {
-    setActiveHandle(null);
-  }, [imageUrl]);
-
   const viewport = useMemo(() => {
     return createCanvasViewport(
       imageWidth,
@@ -166,10 +168,17 @@ export function CropEditorCanvas({
   }, [cropRect, viewport.offsetX, viewport.offsetY, viewport.scale]);
   const imageRenderWidth = imageWidth * viewport.scale;
   const imageRenderHeight = imageHeight * viewport.scale;
+  const activeHandle =
+    activeHandleState.imageUrl === imageUrl ? activeHandleState.handle : null;
+  const isImageLoading = loadedImage.loadedUrl !== imageUrl;
 
   return (
     <div ref={containerRef} className="source-editor-frame">
-      {hasError ? (
+      {isImageLoading ? (
+        <div className="editor-loading-state">
+          <p>Loading transformed preview...</p>
+        </div>
+      ) : loadedImage.hasError ? (
         <div className="preview-error" role="alert">
           <h3>Preview unavailable</h3>
           <p>
@@ -177,7 +186,7 @@ export function CropEditorCanvas({
             switch back to perspective or tone while the preview reloads.
           </p>
         </div>
-      ) : image === null ? (
+      ) : loadedImage.image === null ? (
         <div className="editor-loading-state">
           <p>Loading transformed preview...</p>
         </div>
@@ -185,7 +194,7 @@ export function CropEditorCanvas({
         <Stage width={viewport.width} height={viewport.height}>
           <Layer>
             <KonvaImage
-              image={image}
+              image={loadedImage.image}
               x={viewport.offsetX}
               y={viewport.offsetY}
               width={imageRenderWidth}
@@ -300,7 +309,7 @@ export function CropEditorCanvas({
                   strokeWidth={3}
                   draggable={!disabled}
                   onDragStart={() => {
-                    setActiveHandle(handle);
+                    setActiveHandleState({ handle, imageUrl });
                   }}
                   onDragMove={(event) => {
                     onCropRectChange(
@@ -323,7 +332,7 @@ export function CropEditorCanvas({
                         imageHeight,
                       ),
                     );
-                    setActiveHandle(null);
+                    setActiveHandleState({ handle: null, imageUrl });
                   }}
                 />
               );
