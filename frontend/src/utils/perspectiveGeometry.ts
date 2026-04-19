@@ -17,18 +17,20 @@ export function createCanvasViewport(
   maxHeight: number,
   padding = 20,
 ): CanvasViewport {
-  const innerWidth = Math.max(maxWidth - padding * 2, 1);
-  const innerHeight = Math.max(maxHeight - padding * 2, 1);
+  const width = Math.max(maxWidth, padding * 2 + 1);
+  const height = Math.max(maxHeight, padding * 2 + 1);
+  const innerWidth = Math.max(width - padding * 2, 1);
+  const innerHeight = Math.max(height - padding * 2, 1);
   const scale = Math.min(innerWidth / imageWidth, innerHeight / imageHeight);
   const renderedWidth = imageWidth * scale;
   const renderedHeight = imageHeight * scale;
 
   return {
-    width: renderedWidth + padding * 2,
-    height: renderedHeight + padding * 2,
+    width,
+    height,
     scale,
-    offsetX: (maxWidth - renderedWidth) / 2,
-    offsetY: (maxHeight - renderedHeight) / 2,
+    offsetX: (width - renderedWidth) / 2,
+    offsetY: (height - renderedHeight) / 2,
   };
 }
 
