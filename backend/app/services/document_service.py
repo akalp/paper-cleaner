@@ -169,6 +169,7 @@ class DocumentService:
             self._clear_erase_paths(document)
         document.updated_at = storage.utcnow()
         storage.save_document(document)
+        storage.touch_session(document.session_id, document.updated_at)
         self._regenerate_preview(document)
         return session_service.to_document_response(document)
 
@@ -225,6 +226,7 @@ class DocumentService:
 
         document.updated_at = storage.utcnow()
         storage.save_document(document)
+        storage.touch_session(document.session_id, document.updated_at)
 
         self._regenerate_preview(document)
         return session_service.to_document_response(document)
@@ -250,6 +252,7 @@ class DocumentService:
 
         document.updated_at = storage.utcnow()
         storage.save_document(document)
+        storage.touch_session(document.session_id, document.updated_at)
         self._regenerate_preview(document)
         return session_service.to_document_response(document)
 
@@ -265,6 +268,7 @@ class DocumentService:
         document.contrast = request.contrast
         document.updated_at = storage.utcnow()
         storage.save_document(document)
+        storage.touch_session(document.session_id, document.updated_at)
 
         self._regenerate_preview(document)
         return session_service.to_document_response(document)

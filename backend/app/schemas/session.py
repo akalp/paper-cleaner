@@ -17,5 +17,17 @@ class SessionResponse(BaseModel):
     documents: list[DocumentResponse] = Field(default_factory=list)
 
 
+class SessionSummary(BaseModel):
+    id: str
+    created_at: str
+    updated_at: str
+    document_count: int = Field(ge=0)
+    first_document_filename: str | None = None
+
+
+class SessionHistoryResponse(BaseModel):
+    sessions: list[SessionSummary] = Field(default_factory=list)
+
+
 class ReorderSessionDocumentsRequest(BaseModel):
     document_ids: list[str] = Field(default_factory=list)

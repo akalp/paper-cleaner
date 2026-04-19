@@ -55,6 +55,12 @@ Suggested directories:
 - `data/temp/`
 - `data/metadata/`
 
+Metadata is persisted in SQLite at `data/metadata/paper_cleaner.sqlite`.
+The database stores sessions and document edit metadata only; uploaded originals and rendered
+previews/exports remain filesystem assets.
+Existing JSON metadata under `data/metadata/sessions/` and `data/metadata/documents/` may be
+imported once at startup for compatibility, but SQLite is authoritative after that import.
+
 ## Metadata model
 
 ### Session schema
@@ -138,6 +144,17 @@ Recommended backend service modules:
 
 ### Sessions
 
+#### `GET /api/sessions`
+
+Return session history summaries sorted by most recent update.
+
+Response:
+
+- session id
+- created/updated timestamps
+- document count
+- first document filename, when available
+
 #### `POST /api/sessions`
 
 Create a new session.
@@ -150,6 +167,10 @@ Response:
 #### `GET /api/sessions/{session_id}`
 
 Return full session state.
+
+#### `DELETE /api/sessions/{session_id}`
+
+Delete one session, its document metadata, its upload directory, and rendered source/preview files.
 
 ### Upload
 

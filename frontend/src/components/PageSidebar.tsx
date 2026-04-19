@@ -21,6 +21,7 @@ import type { DocumentResponse } from "../types";
 interface PageSidebarProps {
   documents: DocumentResponse[];
   selectedDocumentId: string | null;
+  hasActiveSession: boolean;
   isSessionLoading: boolean;
   isReordering: boolean;
   onSelectDocument: (documentId: string) => void;
@@ -30,6 +31,7 @@ interface PageSidebarProps {
 export function PageSidebar({
   documents,
   selectedDocumentId,
+  hasActiveSession,
   isSessionLoading,
   isReordering,
   onSelectDocument,
@@ -79,7 +81,12 @@ export function PageSidebar({
       {isSessionLoading ? (
         <EmptyPanel
           title="Preparing workspace"
-          message="Creating a fresh local session for this editing run."
+          message="Loading local sessions and the last active workspace."
+        />
+      ) : !hasActiveSession ? (
+        <EmptyPanel
+          title="No active session"
+          message="Open a session from history or create a new one before uploading pages."
         />
       ) : documents.length === 0 ? (
         <EmptyPanel

@@ -1,7 +1,11 @@
 from fastapi import HTTPException, status
 
 from app.schemas.document import DocumentResponse
-from app.schemas.session import ReorderSessionDocumentsRequest, SessionResponse
+from app.schemas.session import (
+    ReorderSessionDocumentsRequest,
+    SessionHistoryResponse,
+    SessionResponse,
+)
 from app.storage.storage import StorageConsistencyError, storage
 
 
@@ -14,6 +18,9 @@ class SessionService:
             updated_at=session.updated_at,
             documents=[],
         )
+
+    def list_sessions(self) -> SessionHistoryResponse:
+        return SessionHistoryResponse(sessions=storage.list_session_summaries())
 
     def get_session_response(self, session_id: str) -> SessionResponse:
         session = storage.get_session(session_id)
@@ -86,6 +93,13 @@ class SessionService:
         session.updated_at = now
         storage.save_session(session)
         return self.get_session_response(session_id)
+
+    def delete_session(self, session_id: str) -> None:
+        if not storage.delete_session(session_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session '{session_id}' was not found.",
+            )
 
     def to_document_response(self, document) -> DocumentResponse:
         return DocumentResponse(

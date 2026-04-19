@@ -63,6 +63,18 @@ export interface SessionResponse {
   documents: DocumentResponse[];
 }
 
+export interface SessionSummary {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  document_count: number;
+  first_document_filename: string | null;
+}
+
+export interface SessionHistoryResponse {
+  sessions: SessionSummary[];
+}
+
 export interface ExportFileResponse {
   blob: Blob;
   filename: string;

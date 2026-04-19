@@ -31,7 +31,3 @@ data/metadata/**
 !data/rendered/exports/.gitkeep
 !data/temp/.gitkeep
 !data/metadata/.gitkeep
-!data/metadata/documents/
-!data/metadata/sessions/
-!data/metadata/documents/.gitkeep
-!data/metadata/sessions/.gitkeep

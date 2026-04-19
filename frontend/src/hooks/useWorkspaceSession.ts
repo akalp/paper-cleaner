@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   createSession,
+  deleteSession,
   exportDocumentImage,
   exportSessionPdf,
   exportSessionZip,
+  getSession,
+  listSessions,
   rerunDocumentAutoDetect,
   reorderSessionDocuments,
   updateDocumentErase,
@@ -21,11 +24,11 @@ import type {
   ExportFileResponse,
   Point,
   SessionResponse,
+  SessionSummary,
   TonePreset,
 } from "../types";
 
-let bootstrapSessionPromise: Promise<SessionResponse> | null = null;
-let bootstrappedSession: SessionResponse | null = null;
+const ACTIVE_SESSION_STORAGE_KEY = "paper-cleaner.activeSessionId";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -35,25 +38,32 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function getOrCreateInitialSession(): Promise<SessionResponse> {
-  if (bootstrappedSession !== null) {
-    return Promise.resolve(bootstrappedSession);
+function readStoredSessionId(): string | null {
+  try {
+    return window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+  } catch {
+    return null;
   }
+}
 
-  if (bootstrapSessionPromise !== null) {
-    return bootstrapSessionPromise;
+function writeStoredSessionId(sessionId: string) {
+  try {
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+  } catch {
+    // The active session can still work for the current page if localStorage is unavailable.
   }
+}
 
-  bootstrapSessionPromise = createSession()
-    .then((session) => {
-      bootstrappedSession = session;
-      return session;
-    })
-    .finally(() => {
-      bootstrapSessionPromise = null;
-    });
+function clearStoredSessionId() {
+  try {
+    window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; the in-memory state is still cleared.
+  }
+}
 
-  return bootstrapSessionPromise;
+function isMissingSessionError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("was not found");
 }
 
 function sortDocuments(documents: DocumentResponse[]): DocumentResponse[] {
@@ -78,11 +88,12 @@ function downloadExportFile(file: ExportFileResponse) {
 }
 
 export function useWorkspaceSession() {
-  const [session, setSession] = useState<SessionResponse | null>(bootstrappedSession);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
-    bootstrappedSession?.documents[0]?.id ?? null,
-  );
-  const [isSessionLoading, setIsSessionLoading] = useState(bootstrappedSession === null);
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -97,34 +108,48 @@ export function useWorkspaceSession() {
   useEffect(() => {
     let isMounted = true;
 
-    if (bootstrappedSession !== null) {
-      return () => {
-        isMounted = false;
-      };
-    }
-
     async function initializeSession() {
       setIsSessionLoading(true);
       setSessionError(null);
 
       try {
-        const nextSession = await getOrCreateInitialSession();
+        const history = await listSessions();
         if (!isMounted) {
           return;
         }
+        setSessionHistory(history.sessions);
 
-        setSession(nextSession);
-        setSelectedDocumentId((currentSelectedDocumentId) => {
-          return currentSelectedDocumentId ?? nextSession.documents[0]?.id ?? null;
-        });
+        const storedSessionId = readStoredSessionId();
+        if (storedSessionId === null) {
+          setSession(null);
+          setSelectedDocumentId(null);
+          return;
+        }
+
+        try {
+          const restoredSession = await getSession(storedSessionId);
+          if (!isMounted) {
+            return;
+          }
+          activateSession(restoredSession);
+        } catch (error) {
+          if (!isMounted) {
+            return;
+          }
+          clearStoredSessionId();
+          setSession(null);
+          setSelectedDocumentId(null);
+          if (!isMissingSessionError(error)) {
+            setSessionError(getErrorMessage(error, "Could not restore the previous session."));
+          }
+        }
       } catch (error) {
         if (!isMounted) {
           return;
         }
-
         setSession(null);
         setSelectedDocumentId(null);
-        setSessionError(getErrorMessage(error, "Could not create a working session."));
+        setSessionError(getErrorMessage(error, "Could not load session history."));
       } finally {
         if (isMounted) {
           setIsSessionLoading(false);
@@ -151,9 +176,89 @@ export function useWorkspaceSession() {
   }, [session]);
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null;
 
-  function mergeSession(nextSession: SessionResponse) {
-    bootstrappedSession = nextSession;
+  function activateSession(nextSession: SessionResponse, preferredDocumentId?: string | null) {
+    writeStoredSessionId(nextSession.id);
     setSession(nextSession);
+    setSelectedDocumentId(() => {
+      if (
+        preferredDocumentId !== undefined &&
+        preferredDocumentId !== null &&
+        nextSession.documents.some((document) => document.id === preferredDocumentId)
+      ) {
+        return preferredDocumentId;
+      }
+
+      return nextSession.documents[0]?.id ?? null;
+    });
+  }
+
+  function clearActiveSession() {
+    clearStoredSessionId();
+    setSession(null);
+    setSelectedDocumentId(null);
+  }
+
+  async function refreshSessionHistory() {
+    const history = await listSessions();
+    setSessionHistory(history.sessions);
+  }
+
+  async function createNewSession() {
+    setIsCreatingSession(true);
+    setWorkspaceActionError(null);
+    setSessionError(null);
+
+    try {
+      const nextSession = await createSession();
+      activateSession(nextSession);
+      await refreshSessionHistory();
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not create a new session."));
+    } finally {
+      setIsCreatingSession(false);
+    }
+  }
+
+  async function openSession(sessionId: string) {
+    setIsSessionLoading(true);
+    setWorkspaceActionError(null);
+    setSessionError(null);
+
+    try {
+      const nextSession = await getSession(sessionId);
+      activateSession(nextSession);
+      await refreshSessionHistory();
+    } catch (error) {
+      if (isMissingSessionError(error)) {
+        clearActiveSession();
+        await refreshSessionHistory();
+      }
+      setWorkspaceActionError(getErrorMessage(error, "Could not open the selected session."));
+    } finally {
+      setIsSessionLoading(false);
+    }
+  }
+
+  async function removeSession(sessionId: string) {
+    setDeletingSessionId(sessionId);
+    setWorkspaceActionError(null);
+
+    try {
+      await deleteSession(sessionId);
+      if (session?.id === sessionId) {
+        clearActiveSession();
+      }
+      await refreshSessionHistory();
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not delete the session."));
+    } finally {
+      setDeletingSessionId(null);
+    }
+  }
+
+  function mergeSession(nextSession: SessionResponse) {
+    const preferredDocumentId = selectedDocumentId;
+    activateSession(nextSession, preferredDocumentId);
   }
 
   function mergeDocument(nextDocument: DocumentResponse) {
@@ -162,15 +267,12 @@ export function useWorkspaceSession() {
         return currentSession;
       }
 
-      const nextSession = {
+      return {
         ...currentSession,
         documents: currentSession.documents.map((document) =>
           document.id === nextDocument.id ? nextDocument : document,
         ),
       };
-
-      bootstrappedSession = nextSession;
-      return nextSession;
     });
   }
 
@@ -180,7 +282,7 @@ export function useWorkspaceSession() {
     }
 
     if (session === null) {
-      setUploadError("Upload is unavailable until a session is ready.");
+      setUploadError("Create or open a session before uploading images.");
       return;
     }
 
@@ -202,6 +304,7 @@ export function useWorkspaceSession() {
 
         return nextSession.documents[0]?.id ?? null;
       });
+      await refreshSessionHistory();
     } catch (error) {
       setUploadError(getErrorMessage(error, "Upload failed."));
     } finally {
@@ -226,6 +329,7 @@ export function useWorkspaceSession() {
     try {
       const nextSession = await reorderSessionDocuments(session.id, documentIds);
       mergeSession(nextSession);
+      await refreshSessionHistory();
     } catch (error) {
       setWorkspaceActionError(getErrorMessage(error, "Could not reorder pages."));
     } finally {
@@ -243,6 +347,7 @@ export function useWorkspaceSession() {
         crop_rect: cropRect,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save perspective changes."));
     } finally {
@@ -260,6 +365,7 @@ export function useWorkspaceSession() {
         crop_rect: cropRect,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset perspective changes."));
     } finally {
@@ -276,6 +382,7 @@ export function useWorkspaceSession() {
         apply_to_user_corners: true,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not re-run auto-detect."));
     } finally {
@@ -293,6 +400,7 @@ export function useWorkspaceSession() {
         crop_rect: cropRect,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save crop changes."));
     } finally {
@@ -310,6 +418,7 @@ export function useWorkspaceSession() {
         crop_rect: cropRect,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset crop."));
     } finally {
@@ -333,6 +442,7 @@ export function useWorkspaceSession() {
         contrast,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save tone changes."));
     } finally {
@@ -351,6 +461,7 @@ export function useWorkspaceSession() {
         contrast: 0,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset tone settings."));
     } finally {
@@ -367,6 +478,7 @@ export function useWorkspaceSession() {
         erase_paths: erasePaths,
       });
       mergeDocument(nextDocument);
+      void refreshSessionHistory();
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save erase changes."));
     } finally {
@@ -430,10 +542,13 @@ export function useWorkspaceSession() {
 
   return {
     session,
+    sessionHistory,
     documents,
     selectedDocument,
     selectedDocumentId,
     isSessionLoading,
+    isCreatingSession,
+    deletingSessionId,
     isUploading,
     sessionError,
     uploadError,
@@ -442,6 +557,9 @@ export function useWorkspaceSession() {
     isReordering,
     activeExportAction,
     activeDocumentAction,
+    createNewSession,
+    openSession,
+    removeSession,
     selectDocument: setSelectedDocumentId,
     uploadFiles,
     reorderDocuments,

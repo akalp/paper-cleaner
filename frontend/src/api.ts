@@ -3,6 +3,7 @@ import type {
   DocumentResponse,
   ErasePath,
   ExportFileResponse,
+  SessionHistoryResponse,
   Point,
   SessionResponse,
   TonePreset,
@@ -27,6 +28,25 @@ async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T
   }
 
   return (await response.json()) as T;
+}
+
+async function requestEmpty(input: RequestInfo, init?: RequestInit): Promise<void> {
+  const response = await fetch(input, init);
+
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}.`;
+
+    try {
+      const errorBody = (await response.json()) as { detail?: string };
+      if (typeof errorBody.detail === "string" && errorBody.detail.trim().length > 0) {
+        detail = errorBody.detail;
+      }
+    } catch {
+      // Ignore non-JSON error bodies and fall back to the default message.
+    }
+
+    throw new Error(detail);
+  }
 }
 
 async function requestExportFile(
@@ -77,8 +97,18 @@ export function createSession(): Promise<SessionResponse> {
   });
 }
 
+export function listSessions(): Promise<SessionHistoryResponse> {
+  return requestJson<SessionHistoryResponse>("/api/sessions");
+}
+
 export function getSession(sessionId: string): Promise<SessionResponse> {
   return requestJson<SessionResponse>(`/api/sessions/${sessionId}`);
+}
+
+export function deleteSession(sessionId: string): Promise<void> {
+  return requestEmpty(`/api/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
 }
 
 export function uploadDocuments(sessionId: string, files: File[]): Promise<SessionResponse> {

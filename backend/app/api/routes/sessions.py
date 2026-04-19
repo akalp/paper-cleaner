@@ -1,12 +1,21 @@
 from fastapi import APIRouter, File, Response, UploadFile
 
-from app.schemas.session import ReorderSessionDocumentsRequest, SessionResponse
+from app.schemas.session import (
+    ReorderSessionDocumentsRequest,
+    SessionHistoryResponse,
+    SessionResponse,
+)
 from app.services.document_service import document_service
 from app.services.export_pdf import export_pdf_service
 from app.services.export_zip import export_zip_service
 from app.services.session_service import session_service
 
 router = APIRouter()
+
+
+@router.get("/sessions", response_model=SessionHistoryResponse)
+async def list_sessions() -> SessionHistoryResponse:
+    return session_service.list_sessions()
 
 
 @router.post("/sessions", response_model=SessionResponse, status_code=201)
@@ -17,6 +26,12 @@ async def create_session() -> SessionResponse:
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str) -> SessionResponse:
     return session_service.get_session_response(session_id)
+
+
+@router.delete("/sessions/{session_id}", status_code=204, response_model=None)
+async def delete_session(session_id: str) -> Response:
+    session_service.delete_session(session_id)
+    return Response(status_code=204)
 
 
 @router.post("/sessions/{session_id}/documents", response_model=SessionResponse)

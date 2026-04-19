@@ -15,6 +15,7 @@ class Settings(BaseModel):
     metadata_dir: Path = data_dir / "metadata"
     session_metadata_dir: Path = metadata_dir / "sessions"
     document_metadata_dir: Path = metadata_dir / "documents"
+    metadata_db_path: Path = metadata_dir / "paper_cleaner.sqlite"
     preview_max_size: tuple[int, int] = (1600, 1600)
 
 

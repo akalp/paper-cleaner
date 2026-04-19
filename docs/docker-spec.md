@@ -48,6 +48,8 @@ The container should provide writable paths for:
 - `/app/data/metadata`
 
 These may be backed by bind mounts or named volumes in compose.
+The SQLite metadata database lives inside `/app/data/metadata`, so the same data mount preserves
+session history and edit metadata across container restarts.
 
 ## Networking
 

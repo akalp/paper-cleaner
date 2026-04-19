@@ -7,6 +7,8 @@ interface WorkspaceHeaderProps {
   hasDocuments: boolean;
   selectedDocumentName: string | null;
   activeExportAction: ExportAction | null;
+  isCreatingSession: boolean;
+  onCreateSession: () => Promise<void>;
   onUploadClick: () => void;
   onExportCurrentDocument: () => Promise<void>;
   onExportZip: () => Promise<void>;
@@ -20,6 +22,8 @@ export function WorkspaceHeader({
   hasDocuments,
   selectedDocumentName,
   activeExportAction,
+  isCreatingSession,
+  onCreateSession,
   onUploadClick,
   onExportCurrentDocument,
   onExportZip,
@@ -44,8 +48,18 @@ export function WorkspaceHeader({
         <button
           className="primary-action"
           type="button"
+          onClick={() => {
+            void onCreateSession();
+          }}
+          disabled={isSessionLoading || isCreatingSession}
+        >
+          {isCreatingSession ? "Creating..." : "New Session"}
+        </button>
+        <button
+          className="primary-action"
+          type="button"
           onClick={onUploadClick}
-          disabled={isSessionLoading || sessionId === null || isUploading}
+          disabled={isSessionLoading || sessionId === null || isUploading || isCreatingSession}
         >
           {isUploading ? "Uploading..." : "Upload Images"}
         </button>

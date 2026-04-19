@@ -128,8 +128,11 @@ Suggested runtime directories:
 - `data/temp/`
 - `data/metadata/`
 
-Metadata can be stored as JSON files per session/document.
-No database is required.
+Session and document metadata is stored in a local SQLite database at
+`data/metadata/paper_cleaner.sqlite`.
+Uploaded originals and rendered assets remain regular files on disk.
+Legacy JSON metadata files may be imported into SQLite during startup, but SQLite is authoritative
+after import.
 
 ## Processing architecture
 

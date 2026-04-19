@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { FeedbackPanel } from "./components/FeedbackPanel";
 import { PageSidebar } from "./components/PageSidebar";
 import { SelectedPageEditor } from "./components/SelectedPageEditor";
+import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
 import { WorkspaceHeader } from "./components/WorkspaceHeader";
 import { useWorkspaceSession } from "./hooks/useWorkspaceSession";
 
@@ -10,10 +11,13 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const {
     session,
+    sessionHistory,
     documents,
     selectedDocument,
     selectedDocumentId,
     isSessionLoading,
+    isCreatingSession,
+    deletingSessionId,
     isUploading,
     sessionError,
     uploadError,
@@ -22,6 +26,9 @@ function App() {
     isReordering,
     activeExportAction,
     activeDocumentAction,
+    createNewSession,
+    openSession,
+    removeSession,
     selectDocument,
     uploadFiles,
     reorderDocuments,
@@ -72,6 +79,8 @@ function App() {
         hasDocuments={documents.length > 0}
         selectedDocumentName={selectedDocument?.filename ?? null}
         activeExportAction={activeExportAction}
+        isCreatingSession={isCreatingSession}
+        onCreateSession={createNewSession}
         onUploadClick={triggerFilePicker}
         onExportCurrentDocument={exportCurrentDocument}
         onExportZip={exportZip}
@@ -98,14 +107,27 @@ function App() {
       ) : null}
 
       <section className="workspace-body">
-        <PageSidebar
-          documents={documents}
-          selectedDocumentId={selectedDocumentId}
-          isSessionLoading={isSessionLoading}
-          isReordering={isReordering}
-          onSelectDocument={selectDocument}
-          onReorderDocuments={reorderDocuments}
-        />
+        <div className="workspace-sidebar-stack">
+          <SessionHistoryPanel
+            sessions={sessionHistory}
+            activeSessionId={session?.id ?? null}
+            isSessionLoading={isSessionLoading}
+            isCreatingSession={isCreatingSession}
+            deletingSessionId={deletingSessionId}
+            onCreateSession={createNewSession}
+            onOpenSession={openSession}
+            onDeleteSession={removeSession}
+          />
+          <PageSidebar
+            documents={documents}
+            selectedDocumentId={selectedDocumentId}
+            hasActiveSession={session !== null}
+            isSessionLoading={isSessionLoading}
+            isReordering={isReordering}
+            onSelectDocument={selectDocument}
+            onReorderDocuments={reorderDocuments}
+          />
+        </div>
         <SelectedPageEditor
           document={selectedDocument}
           isSessionLoading={isSessionLoading}

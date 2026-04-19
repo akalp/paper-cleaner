@@ -34,6 +34,7 @@ def backend_workspace(tmp_path: Path) -> Iterator[Path]:
         "metadata_dir": settings.metadata_dir,
         "session_metadata_dir": settings.session_metadata_dir,
         "document_metadata_dir": settings.document_metadata_dir,
+        "metadata_db_path": settings.metadata_db_path,
         "preview_max_size": settings.preview_max_size,
     }
     original_root_dir = storage.root_dir
@@ -51,6 +52,7 @@ def backend_workspace(tmp_path: Path) -> Iterator[Path]:
     settings.metadata_dir = data_root / "metadata"
     settings.session_metadata_dir = settings.metadata_dir / "sessions"
     settings.document_metadata_dir = settings.metadata_dir / "documents"
+    settings.metadata_db_path = settings.metadata_dir / "paper_cleaner.sqlite"
     settings.preview_max_size = (1600, 1600)
     storage.root_dir = workspace_root
     storage.ensure_directories()
