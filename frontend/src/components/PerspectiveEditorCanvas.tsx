@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Circle,
-  Group,
-  Image as KonvaImage,
-  Layer,
-  Line,
-  Stage,
-  Text,
-} from "react-konva";
+import { Circle, Group, Image as KonvaImage, Layer, Line, Stage, Text } from "react-konva";
 
 import type { Point } from "../types";
 import {
@@ -132,8 +124,8 @@ export function PerspectiveEditorCanvas({
         <div className="preview-error" role="alert">
           <h3>Source image unavailable</h3>
           <p>
-            The original uploaded image could not be loaded for perspective editing.
-            The transformed preview may still load if the backend render succeeded.
+            The original uploaded image could not be loaded for perspective editing. The transformed
+            preview may still load if the backend render succeeded.
           </p>
         </div>
       ) : image === null ? (
@@ -178,10 +170,7 @@ export function PerspectiveEditorCanvas({
                     }}
                     onDragMove={(event) => {
                       const nextImagePoint = clampPointToImageBounds(
-                        canvasPointToImagePoint(
-                          [event.target.x(), event.target.y()],
-                          viewport,
-                        ),
+                        canvasPointToImagePoint([event.target.x(), event.target.y()], viewport),
                         imageWidth,
                         imageHeight,
                       );
@@ -189,10 +178,7 @@ export function PerspectiveEditorCanvas({
                     }}
                     onDragEnd={(event) => {
                       const nextImagePoint = clampPointToImageBounds(
-                        canvasPointToImagePoint(
-                          [event.target.x(), event.target.y()],
-                          viewport,
-                        ),
+                        canvasPointToImagePoint([event.target.x(), event.target.y()], viewport),
                         imageWidth,
                         imageHeight,
                       );

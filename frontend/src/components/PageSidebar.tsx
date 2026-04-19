@@ -87,11 +87,7 @@ export function PageSidebar({
           message="Upload one or more document images to start browsing them here."
         />
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
             items={documents.map((document) => document.id)}
             strategy={verticalListSortingStrategy}

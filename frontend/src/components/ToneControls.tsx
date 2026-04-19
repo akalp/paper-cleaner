@@ -131,12 +131,7 @@ export function ToneControls({
         </p>
 
         <div className="editor-actions">
-          <button
-            className="primary-action"
-            type="button"
-            disabled={saveDisabled}
-            onClick={onSave}
-          >
+          <button className="primary-action" type="button" disabled={saveDisabled} onClick={onSave}>
             {saveLabel}
           </button>
           <button

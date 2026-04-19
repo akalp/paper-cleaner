@@ -87,9 +87,7 @@ function App() {
         />
       ) : null}
 
-      {uploadError ? (
-        <FeedbackPanel title="Upload failed" message={uploadError} />
-      ) : null}
+      {uploadError ? <FeedbackPanel title="Upload failed" message={uploadError} /> : null}
 
       {documentActionError ? (
         <FeedbackPanel title="Document update failed" message={documentActionError} />

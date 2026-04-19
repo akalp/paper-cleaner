@@ -60,10 +60,7 @@ function sortDocuments(documents: DocumentResponse[]): DocumentResponse[] {
   return [...documents].sort((left, right) => left.order_index - right.order_index);
 }
 
-function buildCacheBustedPreviewUrl(
-  previewUrl: string,
-  token: string,
-): string {
+function buildCacheBustedPreviewUrl(previewUrl: string, token: string): string {
   const previewLocation = new URL(previewUrl, window.location.origin);
   previewLocation.searchParams.set("v", token);
   return `${previewLocation.pathname}${previewLocation.search}`;
@@ -93,8 +90,9 @@ export function useWorkspaceSession() {
   const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
   const [activeExportAction, setActiveExportAction] = useState<ExportAction | null>(null);
-  const [activeDocumentAction, setActiveDocumentAction] =
-    useState<ActiveDocumentAction | null>(null);
+  const [activeDocumentAction, setActiveDocumentAction] = useState<ActiveDocumentAction | null>(
+    null,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -151,8 +149,7 @@ export function useWorkspaceSession() {
       ),
     }));
   }, [session]);
-  const selectedDocument =
-    documents.find((document) => document.id === selectedDocumentId) ?? null;
+  const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null;
 
   function mergeSession(nextSession: SessionResponse) {
     bootstrappedSession = nextSession;
@@ -286,11 +283,7 @@ export function useWorkspaceSession() {
     }
   }
 
-  async function saveCrop(
-    documentId: string,
-    userCorners: Point[] | null,
-    cropRect: CropRect,
-  ) {
+  async function saveCrop(documentId: string, userCorners: Point[] | null, cropRect: CropRect) {
     setActiveDocumentAction({ action: "save-crop", documentId });
     setDocumentActionError(null);
 
@@ -307,11 +300,7 @@ export function useWorkspaceSession() {
     }
   }
 
-  async function resetCrop(
-    documentId: string,
-    userCorners: Point[] | null,
-    cropRect: CropRect,
-  ) {
+  async function resetCrop(documentId: string, userCorners: Point[] | null, cropRect: CropRect) {
     setActiveDocumentAction({ action: "reset-crop", documentId });
     setDocumentActionError(null);
 

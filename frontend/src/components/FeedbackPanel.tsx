@@ -5,12 +5,7 @@ interface FeedbackPanelProps {
   onAction?: () => void;
 }
 
-export function FeedbackPanel({
-  title,
-  message,
-  actionLabel,
-  onAction,
-}: FeedbackPanelProps) {
+export function FeedbackPanel({ title, message, actionLabel, onAction }: FeedbackPanelProps) {
   return (
     <section className="feedback-panel feedback-panel--error" role="alert">
       <h2>{title}</h2>

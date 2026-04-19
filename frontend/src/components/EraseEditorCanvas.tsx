@@ -1,12 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Circle,
-  Image as KonvaImage,
-  Layer,
-  Line,
-  Stage,
-  Text,
-} from "react-konva";
+import { Circle, Image as KonvaImage, Layer, Line, Stage, Text } from "react-konva";
 
 import type { ErasePath, Point } from "../types";
 import {
@@ -150,8 +143,8 @@ export function EraseEditorCanvas({
         <div className="preview-error" role="alert">
           <h3>Preview unavailable</h3>
           <p>
-            The corrected preview could not be loaded for erase editing. You can still
-            switch back to perspective, crop, or tone while it reloads.
+            The corrected preview could not be loaded for erase editing. You can still switch back
+            to perspective, crop, or tone while it reloads.
           </p>
         </div>
       ) : loadedImage.image === null ? (
@@ -185,10 +178,7 @@ export function EraseEditorCanvas({
               return;
             }
 
-            onAddPoint([
-              imagePoint[0],
-              imagePoint[1],
-            ]);
+            onAddPoint([imagePoint[0], imagePoint[1]]);
           }}
         >
           <Layer>

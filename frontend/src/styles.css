@@ -457,9 +457,7 @@ img {
   padding: 12px;
   border: 1px solid rgba(26, 36, 32, 0.08);
   border-radius: 22px;
-  background:
-    linear-gradient(135deg, rgba(34, 53, 44, 0.04), rgba(195, 109, 42, 0.08)),
-    #f8f6f0;
+  background: linear-gradient(135deg, rgba(34, 53, 44, 0.04), rgba(195, 109, 42, 0.08)), #f8f6f0;
   overflow: hidden;
 }
 

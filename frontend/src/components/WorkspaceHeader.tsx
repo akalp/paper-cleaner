@@ -25,10 +25,8 @@ export function WorkspaceHeader({
   onExportZip,
   onExportPdf,
 }: WorkspaceHeaderProps) {
-  const canExportSession =
-    !isSessionLoading && sessionId !== null && hasDocuments;
-  const canExportCurrentPage =
-    canExportSession && selectedDocumentName !== null;
+  const canExportSession = !isSessionLoading && sessionId !== null && hasDocuments;
+  const canExportCurrentPage = canExportSession && selectedDocumentName !== null;
   const isExporting = activeExportAction !== null;
 
   return (
@@ -37,9 +35,8 @@ export function WorkspaceHeader({
         <p className="workspace-kicker">Workspace</p>
         <h1>paper-cleaner</h1>
         <p className="workspace-description">
-          Upload pages, correct perspective, refine crop on the transformed
-          preview, erase unwanted regions, reorder pages, and export print-ready
-          results.
+          Upload pages, correct perspective, refine crop on the transformed preview, erase unwanted
+          regions, reorder pages, and export print-ready results.
         </p>
       </div>
 
@@ -64,9 +61,7 @@ export function WorkspaceHeader({
             }}
             disabled={!canExportCurrentPage || isExporting}
           >
-            {activeExportAction === "page-image"
-              ? "Exporting Page..."
-              : "Export Page PNG"}
+            {activeExportAction === "page-image" ? "Exporting Page..." : "Export Page PNG"}
           </button>
           <button
             className="secondary-action"

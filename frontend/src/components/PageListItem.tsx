@@ -18,14 +18,7 @@ export function PageListItem({
   isReordering,
   onSelect,
 }: PageListItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: document.id,
     disabled: isReordering,
   });

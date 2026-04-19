@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Circle,
-  Image as KonvaImage,
-  Layer,
-  Rect,
-  Stage,
-  Text,
-} from "react-konva";
+import { Circle, Image as KonvaImage, Layer, Rect, Stage, Text } from "react-konva";
 
 import type { CropRect } from "../types";
 import type { CropHandle } from "../utils/perspectiveGeometry";
@@ -168,8 +161,7 @@ export function CropEditorCanvas({
   }, [cropRect, viewport.offsetX, viewport.offsetY, viewport.scale]);
   const imageRenderWidth = imageWidth * viewport.scale;
   const imageRenderHeight = imageHeight * viewport.scale;
-  const activeHandle =
-    activeHandleState.imageUrl === imageUrl ? activeHandleState.handle : null;
+  const activeHandle = activeHandleState.imageUrl === imageUrl ? activeHandleState.handle : null;
   const isImageLoading = loadedImage.loadedUrl !== imageUrl;
 
   return (
@@ -182,8 +174,8 @@ export function CropEditorCanvas({
         <div className="preview-error" role="alert">
           <h3>Preview unavailable</h3>
           <p>
-            The transformed preview could not be loaded for crop editing. You can still
-            switch back to perspective or tone while the preview reloads.
+            The transformed preview could not be loaded for crop editing. You can still switch back
+            to perspective or tone while the preview reloads.
           </p>
         </div>
       ) : loadedImage.image === null ? (
@@ -221,7 +213,10 @@ export function CropEditorCanvas({
             <Rect
               x={canvasCropRect.x + canvasCropRect.width}
               y={canvasCropRect.y}
-              width={Math.max(viewport.offsetX + imageRenderWidth - (canvasCropRect.x + canvasCropRect.width), 0)}
+              width={Math.max(
+                viewport.offsetX + imageRenderWidth - (canvasCropRect.x + canvasCropRect.width),
+                0,
+              )}
               height={canvasCropRect.height}
               fill="rgba(26, 36, 32, 0.42)"
               listening={false}

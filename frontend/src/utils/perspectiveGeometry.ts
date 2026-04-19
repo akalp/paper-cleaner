@@ -106,8 +106,7 @@ function polygonSignedArea(points: Point[]): number {
 
 function orientation(start: Point, middle: Point, end: Point): number {
   const value =
-    (middle[1] - start[1]) * (end[0] - middle[0]) -
-    (middle[0] - start[0]) * (end[1] - middle[1]);
+    (middle[1] - start[1]) * (end[0] - middle[0]) - (middle[0] - start[0]) * (end[1] - middle[1]);
 
   if (Math.abs(value) < 0.00001) {
     return 0;
@@ -125,7 +124,12 @@ function onSegment(start: Point, middle: Point, end: Point): boolean {
   );
 }
 
-function segmentsIntersect(firstStart: Point, firstEnd: Point, secondStart: Point, secondEnd: Point) {
+function segmentsIntersect(
+  firstStart: Point,
+  firstEnd: Point,
+  secondStart: Point,
+  secondEnd: Point,
+) {
   const firstOrientation = orientation(firstStart, firstEnd, secondStart);
   const secondOrientation = orientation(firstStart, firstEnd, secondEnd);
   const thirdOrientation = orientation(secondStart, secondEnd, firstStart);
@@ -164,8 +168,10 @@ export function isQuadrilateralValid(points: Point[]): boolean {
     return false;
   }
 
-  return !segmentsIntersect(points[0], points[1], points[2], points[3]) &&
-    !segmentsIntersect(points[1], points[2], points[3], points[0]);
+  return (
+    !segmentsIntersect(points[0], points[1], points[2], points[3]) &&
+    !segmentsIntersect(points[1], points[2], points[3], points[0])
+  );
 }
 
 export function areCropRectsEqual(left: CropRect, right: CropRect): boolean {

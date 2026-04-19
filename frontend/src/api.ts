@@ -29,7 +29,10 @@ async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T
   return (await response.json()) as T;
 }
 
-async function requestExportFile(input: RequestInfo, fallbackFilename: string): Promise<ExportFileResponse> {
+async function requestExportFile(
+  input: RequestInfo,
+  fallbackFilename: string,
+): Promise<ExportFileResponse> {
   const response = await fetch(input);
 
   if (!response.ok) {
@@ -78,10 +81,7 @@ export function getSession(sessionId: string): Promise<SessionResponse> {
   return requestJson<SessionResponse>(`/api/sessions/${sessionId}`);
 }
 
-export function uploadDocuments(
-  sessionId: string,
-  files: File[],
-): Promise<SessionResponse> {
+export function uploadDocuments(sessionId: string, files: File[]): Promise<SessionResponse> {
   const formData = new FormData();
   for (const file of files) {
     formData.append("files", file);

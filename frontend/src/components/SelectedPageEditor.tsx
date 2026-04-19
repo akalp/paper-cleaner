@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import type {
   ActiveDocumentAction,
@@ -43,7 +37,11 @@ interface SelectedPageEditorProps {
   document: DocumentResponse | null;
   isSessionLoading: boolean;
   activeDocumentAction: ActiveDocumentAction | null;
-  onSavePerspective: (documentId: string, userCorners: Point[], cropRect: CropRect) => Promise<void>;
+  onSavePerspective: (
+    documentId: string,
+    userCorners: Point[],
+    cropRect: CropRect,
+  ) => Promise<void>;
   onResetPerspective: (documentId: string, cropRect: CropRect) => Promise<void>;
   onRerunAutoDetect: (documentId: string) => Promise<void>;
   onSaveCrop: (
@@ -180,10 +178,7 @@ function buildDraftFromDocument(document: DocumentResponse): EditorDraftState {
   };
 }
 
-function editorDraftReducer(
-  state: EditorDraftState,
-  action: EditorDraftAction,
-): EditorDraftState {
+function editorDraftReducer(state: EditorDraftState, action: EditorDraftAction): EditorDraftState {
   switch (action.type) {
     case "clear":
       return EMPTY_DRAFT_STATE;
@@ -378,8 +373,7 @@ export function SelectedPageEditor({
     document !== null &&
     draft.corners.length === 4 &&
     !arePointsEqual(draft.corners, effectiveCorners);
-  const isPerspectiveDraftValid =
-    draft.corners.length === 4 && isQuadrilateralValid(draft.corners);
+  const isPerspectiveDraftValid = draft.corners.length === 4 && isQuadrilateralValid(draft.corners);
   const hasUnsavedCropChanges =
     document !== null && !areCropRectsEqual(draft.cropRect, document.crop_rect);
   const hasUnsavedToneChanges =
@@ -546,8 +540,8 @@ export function SelectedPageEditor({
           </div>
 
           <p className="editor-instructions">
-            Resize with the corner handles or drag inside the frame to move the crop on
-            the transformed preview.
+            Resize with the corner handles or drag inside the frame to move the crop on the
+            transformed preview.
           </p>
 
           <CropEditorCanvas
@@ -599,14 +593,12 @@ export function SelectedPageEditor({
               <p className="panel-kicker">Tone controls</p>
               <h3>{document.filename}</h3>
             </div>
-            <span className="editor-mode-badge">
-              {formatTonePresetLabel(draft.tonePreset)}
-            </span>
+            <span className="editor-mode-badge">{formatTonePresetLabel(draft.tonePreset)}</span>
           </div>
 
           <p className="editor-instructions">
-            Use named cleanup presets, then fine-tune brightness and contrast before
-            saving the page-specific tone settings.
+            Use named cleanup presets, then fine-tune brightness and contrast before saving the
+            page-specific tone settings.
           </p>
 
           <ToneControls
@@ -655,15 +647,12 @@ export function SelectedPageEditor({
               <p className="panel-kicker">Erase editor</p>
               <h3>{document.filename}</h3>
             </div>
-            <span className="editor-mode-badge">
-              {formatEraseCount(draft.erasePaths.length)}
-            </span>
+            <span className="editor-mode-badge">{formatEraseCount(draft.erasePaths.length)}</span>
           </div>
 
           <p className="editor-instructions">
-            Click the corrected preview to place polygon points. Complete each region
-            when it encloses the content you want filled white, then save to update the
-            backend preview.
+            Click the corrected preview to place polygon points. Complete each region when it
+            encloses the content you want filled white, then save to update the backend preview.
           </p>
 
           <EraseEditorCanvas
@@ -755,8 +744,8 @@ export function SelectedPageEditor({
         </div>
 
         <p className="editor-instructions">
-          Drag the four handles to match the page corners on the original image, then
-          save to refresh the corrected preview.
+          Drag the four handles to match the page corners on the original image, then save to
+          refresh the corrected preview.
         </p>
 
         <PerspectiveEditorCanvas
@@ -827,8 +816,7 @@ export function SelectedPageEditor({
           <p className="panel-kicker">Editor</p>
           <h2>Page cleanup</h2>
           <p className="editor-mode-summary">
-            Perspective, crop, tone, and erase settings stay independent for each
-            uploaded page.
+            Perspective, crop, tone, and erase settings stay independent for each uploaded page.
           </p>
         </div>
 
@@ -907,13 +895,13 @@ export function SelectedPageEditor({
               <p className="panel-kicker">Current document</p>
               <h3>{document.filename}</h3>
               <p>
-                Manual corrections remain page-specific. Save each mode when you want
-                the backend preview to refresh.
+                Manual corrections remain page-specific. Save each mode when you want the backend
+                preview to refresh.
               </p>
               {document.auto_detect_status === "fallback_full_image" ? (
                 <p className="summary-warning">
-                  Auto-detect fell back to the full image bounds. Manual perspective
-                  correction is expected for this page.
+                  Auto-detect fell back to the full image bounds. Manual perspective correction is
+                  expected for this page.
                 </p>
               ) : null}
             </div>
@@ -925,7 +913,9 @@ export function SelectedPageEditor({
               </div>
               <div>
                 <dt>Source size</dt>
-                <dd>{document.normalized_width} × {document.normalized_height}</dd>
+                <dd>
+                  {document.normalized_width} × {document.normalized_height}
+                </dd>
               </div>
               <div>
                 <dt>Detection</dt>
@@ -983,8 +973,8 @@ function PreviewPane({ filename, previewUrl }: PreviewPaneProps) {
     <div className="preview-error" role="alert">
       <h3>Preview unavailable</h3>
       <p>
-        The transformed preview could not be loaded for this page. The editing controls
-        are still available for local adjustments.
+        The transformed preview could not be loaded for this page. The editing controls are still
+        available for local adjustments.
       </p>
     </div>
   ) : (
