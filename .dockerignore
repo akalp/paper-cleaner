@@ -2,10 +2,17 @@
 .gitignore
 .DS_Store
 .venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
 __pycache__
 *.py[cod]
 
 frontend/node_modules
 frontend/dist
+frontend/.pnpm-store
+.pnpm-store
 
 data
