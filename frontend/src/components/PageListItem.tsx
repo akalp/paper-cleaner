@@ -1,9 +1,13 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 import type { DocumentResponse } from "../types";
 
 interface PageListItemProps {
   document: DocumentResponse;
   index: number;
   isSelected: boolean;
+  isReordering: boolean;
   onSelect: (documentId: string) => void;
 }
 
@@ -11,10 +15,40 @@ export function PageListItem({
   document,
   index,
   isSelected,
+  isReordering,
   onSelect,
 }: PageListItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: document.id,
+    disabled: isReordering,
+  });
+
   return (
-    <li>
+    <li
+      ref={setNodeRef}
+      className={`page-list-row${isDragging ? " is-dragging" : ""}`}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <button
+        className="page-drag-handle"
+        type="button"
+        disabled={isReordering}
+        {...attributes}
+        {...listeners}
+      >
+        <span aria-hidden="true">::</span>
+        <span className="sr-only">Reorder {document.filename}</span>
+      </button>
       <button
         className={`page-list-item${isSelected ? " is-selected" : ""}`}
         type="button"

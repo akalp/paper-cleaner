@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   createSession,
+  exportDocumentImage,
+  exportSessionPdf,
+  exportSessionZip,
   rerunDocumentAutoDetect,
+  reorderSessionDocuments,
   updateDocumentErase,
   updateDocumentTone,
   updateDocumentTransform,
@@ -13,6 +17,8 @@ import type {
   CropRect,
   DocumentResponse,
   ErasePath,
+  ExportAction,
+  ExportFileResponse,
   Point,
   SessionResponse,
   TonePreset,
@@ -63,6 +69,17 @@ function buildCacheBustedPreviewUrl(
   return `${previewLocation.pathname}${previewLocation.search}`;
 }
 
+function downloadExportFile(file: ExportFileResponse) {
+  const objectUrl = URL.createObjectURL(file.blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = file.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export function useWorkspaceSession() {
   const [session, setSession] = useState<SessionResponse | null>(bootstrappedSession);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
@@ -73,6 +90,9 @@ export function useWorkspaceSession() {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [documentActionError, setDocumentActionError] = useState<string | null>(null);
+  const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const [activeExportAction, setActiveExportAction] = useState<ExportAction | null>(null);
   const [activeDocumentAction, setActiveDocumentAction] =
     useState<ActiveDocumentAction | null>(null);
 
@@ -189,6 +209,30 @@ export function useWorkspaceSession() {
       setUploadError(getErrorMessage(error, "Upload failed."));
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function reorderDocuments(documentIds: string[]) {
+    if (session === null) {
+      setWorkspaceActionError("Reordering is unavailable until a session is ready.");
+      return;
+    }
+
+    const currentDocumentIds = documents.map((document) => document.id);
+    if (documentIds.join("|") === currentDocumentIds.join("|")) {
+      return;
+    }
+
+    setIsReordering(true);
+    setWorkspaceActionError(null);
+
+    try {
+      const nextSession = await reorderSessionDocuments(session.id, documentIds);
+      mergeSession(nextSession);
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not reorder pages."));
+    } finally {
+      setIsReordering(false);
     }
   }
 
@@ -341,6 +385,60 @@ export function useWorkspaceSession() {
     }
   }
 
+  async function exportCurrentDocument() {
+    if (selectedDocument === null) {
+      setWorkspaceActionError("Select a page before exporting the current page.");
+      return;
+    }
+
+    setActiveExportAction("page-image");
+    setWorkspaceActionError(null);
+
+    try {
+      downloadExportFile(await exportDocumentImage(selectedDocument.id));
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not export the current page."));
+    } finally {
+      setActiveExportAction(null);
+    }
+  }
+
+  async function exportZip() {
+    if (session === null) {
+      setWorkspaceActionError("ZIP export is unavailable until a session is ready.");
+      return;
+    }
+
+    setActiveExportAction("zip");
+    setWorkspaceActionError(null);
+
+    try {
+      downloadExportFile(await exportSessionZip(session.id));
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not export the ZIP archive."));
+    } finally {
+      setActiveExportAction(null);
+    }
+  }
+
+  async function exportPdf() {
+    if (session === null) {
+      setWorkspaceActionError("PDF export is unavailable until a session is ready.");
+      return;
+    }
+
+    setActiveExportAction("pdf");
+    setWorkspaceActionError(null);
+
+    try {
+      downloadExportFile(await exportSessionPdf(session.id));
+    } catch (error) {
+      setWorkspaceActionError(getErrorMessage(error, "Could not export the PDF."));
+    } finally {
+      setActiveExportAction(null);
+    }
+  }
+
   return {
     session,
     documents,
@@ -351,9 +449,13 @@ export function useWorkspaceSession() {
     sessionError,
     uploadError,
     documentActionError,
+    workspaceActionError,
+    isReordering,
+    activeExportAction,
     activeDocumentAction,
     selectDocument: setSelectedDocumentId,
     uploadFiles,
+    reorderDocuments,
     savePerspective,
     resetPerspective,
     rerunAutoDetect,
@@ -362,5 +464,8 @@ export function useWorkspaceSession() {
     saveTone,
     resetTone,
     saveErase,
+    exportCurrentDocument,
+    exportZip,
+    exportPdf,
   };
 }

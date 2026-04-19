@@ -11,6 +11,7 @@ from app.schemas.document import (
     UpdateTransformRequest,
 )
 from app.services.document_service import document_service
+from app.services.export_image import export_image_service
 
 router = APIRouter()
 
@@ -31,6 +32,20 @@ async def get_document_preview(
             media_type="image/png",
         )
     return FileResponse(document_service.get_preview_path(document_id), media_type="image/png")
+
+
+@router.get("/documents/{document_id}/export/image", response_model=None)
+async def export_document_image(document_id: str) -> Response:
+    document = export_image_service.get_document(document_id)
+    return Response(
+        content=export_image_service.render_png_bytes(document),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{export_image_service.filename_for_document(document)}"'
+            ),
+        },
+    )
 
 
 @router.post("/documents/{document_id}/auto-detect", response_model=DocumentResponse)

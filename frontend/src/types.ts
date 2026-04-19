@@ -17,6 +17,7 @@ export type DocumentMutationAction =
   | "save-tone"
   | "reset-tone"
   | "save-erase";
+export type ExportAction = "page-image" | "zip" | "pdf";
 
 export interface ActiveDocumentAction {
   action: DocumentMutationAction;
@@ -60,4 +61,9 @@ export interface SessionResponse {
   created_at: string;
   updated_at: string;
   documents: DocumentResponse[];
+}
+
+export interface ExportFileResponse {
+  blob: Blob;
+  filename: string;
 }

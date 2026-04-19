@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 
 from app.schemas.document import DocumentResponse
-from app.schemas.session import SessionResponse
+from app.schemas.session import ReorderSessionDocumentsRequest, SessionResponse
 from app.storage.storage import StorageConsistencyError, storage
 
 
@@ -37,6 +37,55 @@ class SessionService:
             updated_at=session.updated_at,
             documents=documents,
         )
+
+    def reorder_documents(
+        self,
+        session_id: str,
+        request: ReorderSessionDocumentsRequest,
+    ) -> SessionResponse:
+        session = storage.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session '{session_id}' was not found.",
+            )
+
+        requested_ids = request.document_ids
+        if len(requested_ids) != len(set(requested_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Document order must not contain duplicate document ids.",
+            )
+
+        current_ids = set(session.document_ids)
+        requested_id_set = set(requested_ids)
+        if requested_id_set != current_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Document order must include exactly the documents in the session.",
+            )
+
+        try:
+            documents_by_id = {
+                document.id: document for document in storage.list_documents(session.document_ids)
+            }
+        except StorageConsistencyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(exc),
+            ) from exc
+
+        now = storage.utcnow()
+        for index, document_id in enumerate(requested_ids):
+            document = documents_by_id[document_id]
+            document.order_index = index
+            document.updated_at = now
+            storage.save_document(document)
+
+        session.document_ids = list(requested_ids)
+        session.updated_at = now
+        storage.save_session(session)
+        return self.get_session_response(session_id)
 
     def to_document_response(self, document) -> DocumentResponse:
         return DocumentResponse(

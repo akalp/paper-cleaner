@@ -2,6 +2,7 @@ import type {
   CropRect,
   DocumentResponse,
   ErasePath,
+  ExportFileResponse,
   Point,
   SessionResponse,
   TonePreset,
@@ -28,6 +29,45 @@ async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T
   return (await response.json()) as T;
 }
 
+async function requestExportFile(input: RequestInfo, fallbackFilename: string): Promise<ExportFileResponse> {
+  const response = await fetch(input);
+
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}.`;
+
+    try {
+      const errorBody = (await response.json()) as { detail?: string };
+      if (typeof errorBody.detail === "string" && errorBody.detail.trim().length > 0) {
+        detail = errorBody.detail;
+      }
+    } catch {
+      // Ignore non-JSON error bodies and fall back to the default message.
+    }
+
+    throw new Error(detail);
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: getFilenameFromDisposition(
+      response.headers.get("Content-Disposition"),
+      fallbackFilename,
+    ),
+  };
+}
+
+function getFilenameFromDisposition(
+  contentDisposition: string | null,
+  fallbackFilename: string,
+): string {
+  if (contentDisposition === null) {
+    return fallbackFilename;
+  }
+
+  const filenameMatch = /filename="([^"]+)"/.exec(contentDisposition);
+  return filenameMatch?.[1] ?? fallbackFilename;
+}
+
 export function createSession(): Promise<SessionResponse> {
   return requestJson<SessionResponse>("/api/sessions", {
     method: "POST",
@@ -50,6 +90,19 @@ export function uploadDocuments(
   return requestJson<SessionResponse>(`/api/sessions/${sessionId}/documents`, {
     method: "POST",
     body: formData,
+  });
+}
+
+export function reorderSessionDocuments(
+  sessionId: string,
+  documentIds: string[],
+): Promise<SessionResponse> {
+  return requestJson<SessionResponse>(`/api/sessions/${sessionId}/reorder`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ document_ids: documentIds }),
   });
 }
 
@@ -122,4 +175,25 @@ export function updateDocumentErase(
     },
     body: JSON.stringify(payload),
   });
+}
+
+export function exportDocumentImage(documentId: string): Promise<ExportFileResponse> {
+  return requestExportFile(
+    `/api/documents/${documentId}/export/image`,
+    `paper-cleaner-${documentId}.png`,
+  );
+}
+
+export function exportSessionZip(sessionId: string): Promise<ExportFileResponse> {
+  return requestExportFile(
+    `/api/sessions/${sessionId}/export/zip`,
+    `paper-cleaner-${sessionId}.zip`,
+  );
+}
+
+export function exportSessionPdf(sessionId: string): Promise<ExportFileResponse> {
+  return requestExportFile(
+    `/api/sessions/${sessionId}/export/pdf`,
+    `paper-cleaner-${sessionId}.pdf`,
+  );
 }

@@ -18,9 +18,13 @@ function App() {
     sessionError,
     uploadError,
     documentActionError,
+    workspaceActionError,
+    isReordering,
+    activeExportAction,
     activeDocumentAction,
     selectDocument,
     uploadFiles,
+    reorderDocuments,
     savePerspective,
     resetPerspective,
     rerunAutoDetect,
@@ -29,6 +33,9 @@ function App() {
     saveTone,
     resetTone,
     saveErase,
+    exportCurrentDocument,
+    exportZip,
+    exportPdf,
   } = useWorkspaceSession();
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -62,7 +69,13 @@ function App() {
         isSessionLoading={isSessionLoading}
         isUploading={isUploading}
         sessionId={session?.id ?? null}
+        hasDocuments={documents.length > 0}
+        selectedDocumentName={selectedDocument?.filename ?? null}
+        activeExportAction={activeExportAction}
         onUploadClick={triggerFilePicker}
+        onExportCurrentDocument={exportCurrentDocument}
+        onExportZip={exportZip}
+        onExportPdf={exportPdf}
       />
 
       {sessionError ? (
@@ -82,12 +95,18 @@ function App() {
         <FeedbackPanel title="Document update failed" message={documentActionError} />
       ) : null}
 
+      {workspaceActionError ? (
+        <FeedbackPanel title="Workspace action failed" message={workspaceActionError} />
+      ) : null}
+
       <section className="workspace-body">
         <PageSidebar
           documents={documents}
           selectedDocumentId={selectedDocumentId}
           isSessionLoading={isSessionLoading}
+          isReordering={isReordering}
           onSelectDocument={selectDocument}
+          onReorderDocuments={reorderDocuments}
         />
         <SelectedPageEditor
           document={selectedDocument}

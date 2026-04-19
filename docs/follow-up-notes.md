@@ -3,7 +3,7 @@
 ## Relevant Future Phase Notes
 
 - DONE in Phase 4: EXIF orientation policy is now explicit for persisted perspective coordinates. The app stores and edits corners in EXIF-normalized image space while original files remain unchanged on disk.
-- PARTIALLY DONE in Phase 4: document editing fields are no longer placeholders for automatic detection and manual perspective correction. `crop_rect`, tone settings, and erase paths still remain structural placeholders until their corresponding phases are completed.
+- DONE across Phases 5-7: document editing fields are no longer placeholders. `crop_rect`, tone settings, and erase paths are persisted, editable, applied in preview rendering, and included in final exports.
 
 ## Optional Later Improvements
 

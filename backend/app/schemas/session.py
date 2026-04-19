@@ -16,3 +16,6 @@ class SessionResponse(BaseModel):
     updated_at: str
     documents: list[DocumentResponse] = Field(default_factory=list)
 
+
+class ReorderSessionDocumentsRequest(BaseModel):
+    document_ids: list[str] = Field(default_factory=list)
