@@ -4,6 +4,20 @@ paper-cleaner is a local document cleaning and print-preparation tool for worksh
 
 The app is intentionally local-first and simple. It does not include accounts, authentication, OCR, cloud storage, analytics, background workers, or extra service dependencies.
 
+## Screenshots
+
+Full-page workspace overview with a loaded multi-page session:
+
+![paper-cleaner workspace overview](docs/screenshots/workspace.png)
+
+Full-page crop, tone, and manual erase views:
+
+![Crop editor](docs/screenshots/crop-editor.png)
+
+![Tone controls](docs/screenshots/tone-controls.png)
+
+![Erase editor](docs/screenshots/erase-editor.png)
+
 ## Run With Docker
 
 Requirements:
