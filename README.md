@@ -47,7 +47,7 @@ The compose file mounts local runtime data into the container:
 ./data:/app/data
 ```
 
-Uploaded originals, rendered previews/exports, temporary files, and JSON metadata are stored under `data/`. Original uploaded files are not overwritten; edits are stored as metadata and reapplied for previews and exports.
+Uploaded originals, rendered previews/exports, temporary files, and the SQLite metadata database are stored under `data/`. Metadata lives at `data/metadata/paper_cleaner.sqlite`, while uploaded and rendered image assets remain regular files. Original uploaded files are not overwritten; edits are stored as metadata and reapplied for previews and exports.
 
 ## Basic Usage
 

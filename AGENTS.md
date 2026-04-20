@@ -73,7 +73,7 @@ The following are out of scope and must not be added unless explicitly requested
    The user explicitly draws polygons/paths to remove content; removed regions are filled white.
 
 6. **Keep the stack small.**
-   Prefer straightforward local-file and JSON-based solutions over introducing databases or infrastructure.
+   Prefer straightforward local-file and SQLite-backed metadata solutions over introducing external databases or infrastructure.
 
 ## Delivery expectations for agents
 

@@ -22,8 +22,8 @@ The backend provides:
 
 ## Hard constraints
 
-- No database is required by default.
-- Prefer local filesystem + JSON metadata storage.
+- Do not introduce an external database service.
+- Prefer local filesystem assets + local SQLite metadata storage.
 - Do not add Celery, Redis, RabbitMQ, or background queues.
 - Do not add OCR.
 - Do not add automatic semantic content removal.

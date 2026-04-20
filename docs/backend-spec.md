@@ -65,7 +65,7 @@ imported once at startup for compatibility, but SQLite is authoritative after th
 
 ### Session schema
 
-Suggested JSON shape:
+Logical stored shape:
 
 ```json
 {
@@ -78,7 +78,7 @@ Suggested JSON shape:
 
 ### Document schema
 
-Suggested JSON shape:
+Logical stored shape:
 
 ```json
 {

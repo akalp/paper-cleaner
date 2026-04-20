@@ -7,6 +7,26 @@ Names can change, but consistency matters more than exact wording.
 
 ## Session
 
+### List sessions
+
+`GET /api/sessions`
+
+Response:
+
+```json
+{
+  "sessions": [
+    {
+      "id": "session_abc123",
+      "created_at": "2026-04-18T12:00:00Z",
+      "updated_at": "2026-04-18T12:15:00Z",
+      "document_count": 2,
+      "first_document_filename": "page1.jpg"
+    }
+  ]
+}
+```
+
 ### Create session
 
 `POST /api/sessions`
@@ -16,6 +36,8 @@ Response:
 ```json
 {
   "id": "session_abc123",
+  "created_at": "2026-04-18T12:00:00Z",
+  "updated_at": "2026-04-18T12:00:00Z",
   "documents": []
 }
 ```
@@ -29,17 +51,29 @@ Response:
 ```json
 {
   "id": "session_abc123",
+  "created_at": "2026-04-18T12:00:00Z",
+  "updated_at": "2026-04-18T12:15:00Z",
   "documents": [
     {
       "id": "doc_1",
       "filename": "page1.jpg",
       "order_index": 0,
+      "preview_version": "2026-04-18T12:15:00Z",
       "preview_url": "/api/documents/doc_1/preview",
       "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed"
     }
   ]
 }
 ```
+
+### Delete session
+
+`DELETE /api/sessions/{sessionId}`
+
+Deletes session metadata, document metadata, the session upload directory, and rendered source/preview
+files for that session.
+
+Response: `204 No Content`
 
 ## Upload documents
 
@@ -59,11 +93,17 @@ Response:
 
 ```json
 {
+  "id": "session_abc123",
+  "created_at": "2026-04-18T12:00:00Z",
+  "updated_at": "2026-04-18T12:20:00Z",
   "documents": [
     {
       "id": "doc_1",
       "filename": "page1.jpg",
       "order_index": 0,
+      "normalized_width": 100,
+      "normalized_height": 200,
+      "auto_detect_status": "detected",
       "auto_corners": [
         [10, 10],
         [100, 10],
@@ -76,8 +116,10 @@ Response:
       "brightness": 0,
       "contrast": 0,
       "erase_paths": [],
+      "source_url": "/api/documents/doc_1/source",
       "preview_url": "/api/documents/doc_1/preview",
-      "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed"
+      "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed",
+      "preview_version": "2026-04-18T12:20:00Z"
     }
   ]
 }
