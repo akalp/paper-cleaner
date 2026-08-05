@@ -25,7 +25,7 @@ class ExportImageService:
     def render_document(self, document: DocumentMetadata) -> Image.Image:
         try:
             normalized_image = render_service.load_normalized_image(
-                storage.root_dir / document.original_path,
+                storage.safe_path(document.original_path),
             )
             return render_service.render_document_image(
                 normalized_image,

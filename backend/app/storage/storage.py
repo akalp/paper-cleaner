@@ -47,12 +47,15 @@ class FileSystemStorage:
         return settings.metadata_db_path
 
     def uploads_session_dir(self, session_id: str) -> Path:
+        self._assert_safe_relative(session_id)
         return settings.uploads_dir / session_id
 
     def preview_path(self, document_id: str) -> Path:
+        self._assert_safe_relative(document_id)
         return settings.previews_dir / f"{document_id}.png"
 
     def source_path(self, document_id: str) -> Path:
+        self._assert_safe_relative(document_id)
         return self.sources_dir() / f"{document_id}.png"
 
     def sources_dir(self) -> Path:
@@ -63,6 +66,25 @@ class FileSystemStorage:
 
     def utcnow(self) -> str:
         return datetime.now(UTC).isoformat()
+
+    def safe_path(self, relative: str) -> Path:
+        self._assert_safe_relative(relative)
+        candidate = (self.root_dir / relative).resolve()
+        if not candidate.is_relative_to(self.root_dir.resolve()):
+            raise StorageConsistencyError(f"Stored path escapes storage root: {relative!r}")
+        return candidate
+
+    def _is_safe_relative(self, relative: str) -> bool:
+        if not isinstance(relative, str) or not relative:
+            return False
+        path = Path(relative)
+        if path.is_absolute():
+            return False
+        return not any(part in ("..", ".", "") for part in path.parts)
+
+    def _assert_safe_relative(self, relative: str) -> None:
+        if not self._is_safe_relative(relative):
+            raise StorageConsistencyError(f"Refusing unsafe path segment: {relative!r}")
 
     def create_session(self) -> SessionMetadata:
         self.ensure_directories()
@@ -229,6 +251,8 @@ class FileSystemStorage:
 
     def delete_session(self, session_id: str) -> bool:
         self.ensure_directories()
+        if not self._is_safe_relative(session_id):
+            return False
         session = self.get_session(session_id)
         if session is None:
             return False
@@ -239,7 +263,7 @@ class FileSystemStorage:
 
         shutil.rmtree(self.uploads_session_dir(session_id), ignore_errors=True)
         for document in documents:
-            self.remove_file(self.root_dir / document.preview_path)
+            self.remove_file(self.safe_path(document.preview_path))
             self.remove_file(self.source_path(document.id))
         return True
 
@@ -347,6 +371,10 @@ class FileSystemStorage:
             try:
                 document = DocumentMetadata.model_validate_json(document_path.read_text())
             except Exception:
+                continue
+            if not self._is_safe_relative(document.original_path) or not self._is_safe_relative(
+                document.preview_path
+            ):
                 continue
             try:
                 connection.execute(

@@ -29,8 +29,12 @@ def create_app() -> FastAPI:
 
     @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
     async def serve_spa(full_path: str):
-        candidate_path = static_dir / full_path
-        if candidate_path.is_file():
+        if full_path == "api" or full_path.startswith("api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+        static_root = static_dir.resolve()
+        candidate_path = (static_root / full_path).resolve()
+        if candidate_path.is_relative_to(static_root) and candidate_path.is_file():
             return FileResponse(candidate_path)
         if index_path.is_file():
             return FileResponse(index_path)

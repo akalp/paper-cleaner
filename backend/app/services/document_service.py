@@ -108,14 +108,14 @@ class DocumentService:
                 detail=f"Document '{document_id}' was not found.",
             )
 
-        preview_path = storage.root_dir / document.preview_path
+        preview_path = storage.safe_path(document.preview_path)
         if not preview_path.is_file():
             self._regenerate_preview(document)
         return preview_path
 
     def render_preview_bytes(self, document_id: str, *, include_crop: bool) -> bytes:
         document = self._get_document(document_id)
-        normalized_image = self._load_normalized_image(storage.root_dir / document.original_path)
+        normalized_image = self._load_normalized_image(storage.safe_path(document.original_path))
         rendered_preview = render_service.render_preview_image(
             normalized_image,
             corners=self._effective_corners(document),
@@ -136,7 +136,7 @@ class DocumentService:
         source_path = storage.source_path(document_id)
         if not source_path.is_file():
             preview_service.generate_source_image(
-                storage.root_dir / document.original_path,
+                storage.safe_path(document.original_path),
                 source_path,
             )
         return source_path
@@ -147,7 +147,7 @@ class DocumentService:
         request: AutoDetectDocumentRequest | None = None,
     ) -> DocumentResponse:
         document = self._get_document(document_id)
-        normalized_image = self._load_normalized_image(storage.root_dir / document.original_path)
+        normalized_image = self._load_normalized_image(storage.safe_path(document.original_path))
         detection_result = detect_document_service.detect(normalized_image)
         original_effective_corners = self._effective_corners(document)
         original_crop_rect = document.crop_rect.model_copy()
@@ -338,8 +338,8 @@ class DocumentService:
 
     def _regenerate_preview(self, document: DocumentMetadata) -> None:
         preview_service.generate_preview(
-            storage.root_dir / document.original_path,
-            storage.root_dir / document.preview_path,
+            storage.safe_path(document.original_path),
+            storage.safe_path(document.preview_path),
             corners=self._effective_corners(document),
             crop_rect=document.crop_rect,
             tone_preset=document.tone_preset,
