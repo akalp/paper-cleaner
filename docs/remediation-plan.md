@@ -25,13 +25,16 @@ Implementation plan for the findings cataloged in `analysis-report/08-findings-a
 
 | Finding | Task | Status |
 | --- | --- | --- |
-| setup | Vitest + Testing Library; `pnpm test` | |
-| H3 | Durable hydration signal; remove dead `switch`/reducer cases | |
-| M5 | Preserve crop on perspective save (re-clamp) | |
-| M9 | Per-document draft cache | |
-| M4 | Confirm before Clear All / Reset Erase | |
-| B1 | Serialize in-flight mutations; disable tool buttons while pending | |
-| B2 | No unhandled rejections from `refreshSessionHistory` | |
+| setup | Vitest + Testing Library; `pnpm test` | done |
+| H3 | Durable hydration signal; remove dead `switch`/reducer cases | done |
+| M5 | Preserve crop on perspective save (re-clamp) | done |
+| M9 | Per-document draft cache | done |
+| M4 | Confirm before Clear All / Reset Erase | done |
+| B1 | Serialize in-flight mutations; disable tool buttons while pending | done |
+| B2 | No unhandled rejections from `refreshSessionHistory` | done |
+
+Regression tests added in `frontend/src/components/SelectedPageEditor.test.tsx`
+(H3, M5, M9, M4). `pnpm lint`, `pnpm test` (8), `pnpm build` all pass.
 
 ## Phase 3 — Backend correctness & performance
 

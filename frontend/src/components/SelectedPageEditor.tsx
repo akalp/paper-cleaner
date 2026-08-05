@@ -12,6 +12,7 @@ import {
   areCropRectsEqual,
   arePointsEqual,
   buildFullCropRect,
+  clampCropRectToBounds,
   isQuadrilateralValid,
   normalizeCropRect,
 } from "../utils/perspectiveGeometry";
@@ -135,9 +136,7 @@ interface EditorDraftState {
 type EditorDraftAction =
   | { type: "clear" }
   | { type: "hydrate-all"; document: DocumentResponse }
-  | { type: "hydrate-perspective-crop-erase"; document: DocumentResponse }
-  | { type: "hydrate-crop-erase"; document: DocumentResponse }
-  | { type: "hydrate-tone"; document: DocumentResponse }
+  | { type: "hydrate-cache"; draft: EditorDraftState }
   | { type: "hydrate-erase"; document: DocumentResponse }
   | { type: "update-corner"; index: number; point: Point }
   | { type: "set-crop-rect"; cropRect: CropRect }
@@ -184,29 +183,8 @@ function editorDraftReducer(state: EditorDraftState, action: EditorDraftAction):
       return EMPTY_DRAFT_STATE;
     case "hydrate-all":
       return buildDraftFromDocument(action.document);
-    case "hydrate-perspective-crop-erase":
-      return {
-        ...state,
-        activeErasePoints: [],
-        activePerspectiveHandleIndex: null,
-        corners: getEffectiveCorners(action.document),
-        cropRect: action.document.crop_rect,
-        erasePaths: action.document.erase_paths,
-      };
-    case "hydrate-crop-erase":
-      return {
-        ...state,
-        activeErasePoints: [],
-        cropRect: action.document.crop_rect,
-        erasePaths: action.document.erase_paths,
-      };
-    case "hydrate-tone":
-      return {
-        ...state,
-        brightness: action.document.brightness,
-        contrast: action.document.contrast,
-        tonePreset: action.document.tone_preset,
-      };
+    case "hydrate-cache":
+      return action.draft;
     case "hydrate-erase":
       return {
         ...state,
@@ -319,6 +297,7 @@ export function SelectedPageEditor({
   const [draft, dispatchDraft] = useReducer(editorDraftReducer, EMPTY_DRAFT_STATE);
   const previousDocumentIdRef = useRef<string | null>(null);
   const previousPreviewVersionRef = useRef<string | null>(null);
+  const draftsByDocumentRef = useRef<Map<string, EditorDraftState>>(new Map());
 
   const effectiveCorners = useMemo(() => {
     return document === null ? [] : getEffectiveCorners(document);
@@ -332,42 +311,33 @@ export function SelectedPageEditor({
       dispatchDraft({ type: "clear" });
       previousDocumentIdRef.current = null;
       previousPreviewVersionRef.current = null;
+      draftsByDocumentRef.current.clear();
       return;
     }
 
-    const previousDocumentId = previousDocumentIdRef.current;
-    const previousPreviewVersion = previousPreviewVersionRef.current;
-    const isNewSelection = previousDocumentId !== document.id;
-    const hasNewServerState = previousPreviewVersion !== document.preview_version;
-    const isActiveDocumentAction =
-      activeDocumentAction !== null && activeDocumentAction.documentId === document.id;
+    const isNewSelection = previousDocumentIdRef.current !== document.id;
+    const hasNewServerState = previousPreviewVersionRef.current !== document.preview_version;
 
     if (isNewSelection) {
-      dispatchDraft({ type: "hydrate-all", document });
-    } else if (hasNewServerState && isActiveDocumentAction) {
-      switch (activeDocumentAction.action) {
-        case "save-perspective":
-        case "reset-perspective":
-        case "auto-detect":
-          dispatchDraft({ type: "hydrate-perspective-crop-erase", document });
-          break;
-        case "save-crop":
-        case "reset-crop":
-          dispatchDraft({ type: "hydrate-crop-erase", document });
-          break;
-        case "save-tone":
-        case "reset-tone":
-          dispatchDraft({ type: "hydrate-tone", document });
-          break;
-        case "save-erase":
-          dispatchDraft({ type: "hydrate-erase", document });
-          break;
+      const cachedDraft = draftsByDocumentRef.current.get(document.id);
+      if (cachedDraft) {
+        dispatchDraft({ type: "hydrate-cache", draft: cachedDraft });
+      } else {
+        dispatchDraft({ type: "hydrate-all", document });
       }
+    } else if (hasNewServerState) {
+      dispatchDraft({ type: "hydrate-all", document });
     }
 
     previousDocumentIdRef.current = document.id;
     previousPreviewVersionRef.current = document.preview_version;
-  }, [activeDocumentAction, document]);
+  }, [document]);
+
+  useEffect(() => {
+    if (document !== null) {
+      draftsByDocumentRef.current.set(document.id, draft);
+    }
+  }, [draft, document]);
 
   const hasUnsavedPerspectiveChanges =
     document !== null &&
@@ -424,6 +394,12 @@ export function SelectedPageEditor({
   }
 
   function handleClearAllErase() {
+    if (draft.erasePaths.length === 0 && !hasActiveEraseRegion) {
+      return;
+    }
+    if (!window.confirm("Clear all erase regions for this page?")) {
+      return;
+    }
     dispatchDraft({ type: "clear-erase" });
   }
 
@@ -431,7 +407,12 @@ export function SelectedPageEditor({
     if (document === null) {
       return;
     }
-
+    if (!hasUnsavedEraseChanges && !hasActiveEraseRegion) {
+      return;
+    }
+    if (!window.confirm("Discard unsaved erase changes and restore the saved regions?")) {
+      return;
+    }
     dispatchDraft({ type: "hydrate-erase", document });
   }
 
@@ -440,7 +421,22 @@ export function SelectedPageEditor({
       return;
     }
 
-    await onSavePerspective(document.id, draft.corners, buildFullCropRect(draft.corners));
+    const currentFullCropRect = buildFullCropRect(getEffectiveCorners(document));
+    const nextFullCropRect = buildFullCropRect(draft.corners);
+    const isFullPageCrop = areCropRectsEqual(document.crop_rect, currentFullCropRect);
+    const nextCropRect = isFullPageCrop
+      ? nextFullCropRect
+      : normalizeCropRect(
+          clampCropRectToBounds(
+            document.crop_rect,
+            nextFullCropRect.width,
+            nextFullCropRect.height,
+          ),
+          nextFullCropRect.width,
+          nextFullCropRect.height,
+        );
+
+    await onSavePerspective(document.id, draft.corners, nextCropRect);
   }
 
   async function handleResetPerspective() {
