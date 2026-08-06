@@ -72,8 +72,13 @@ Regression tests added in `frontend/src/components/SelectedPageEditor.test.tsx`
 
 ## Phase 5 — Docs & finalize
 
-- `api-contract.md`: `source` + `export/image`, scale factors, timestamps, 400-vs-422.
-- `backend-spec.md`: remove stale "database optional"; add session history; A4 semantics.
-- `frontend-spec.md`: session history; thumbnails + live tone preview.
-- `architecture.md`: `ErasePath.id`; resolve `final_render_cache_path`.
-- Full verification: `pytest`; `pnpm test && pnpm lint && pnpm format:check && pnpm build`; `docker compose config`.
+- `api-contract.md`: `source` + `export/image`, scale factors, timestamps, 400-vs-422. **done**
+- `backend-spec.md`: remove stale "database optional"; add session history; A4 semantics. **done**
+- `frontend-spec.md`: session history; thumbnails + live tone preview. **done**
+- `architecture.md`: `ErasePath.id`; resolve `final_render_cache_path`. **done**
+- Full verification: `pytest`; `pnpm test && pnpm lint && pnpm format:check && pnpm build`; `docker compose config`. **done**
+
+## Status
+
+All findings in `analysis-report/08-findings-and-recommendations.md` (H1-H3, M1-M9, L1-L11) and the
+appendix observations (A/B/C) are addressed. See `analysis-report/` for the original review.

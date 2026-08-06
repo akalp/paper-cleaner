@@ -17,6 +17,7 @@ It must make per-image cleanup fast and understandable.
 The frontend must support:
 
 - selecting/uploading multiple images
+- creating, opening, and deleting sessions (persistent session history)
 - viewing uploaded pages in a sidebar/list
 - reordering pages
 - selecting one page for editing
@@ -112,7 +113,7 @@ The sidebar must:
 
 - display all uploaded pages
 - show order visually
-- show thumbnails or compact preview cards
+- show a thumbnail and per-row status for each page
 - support drag-and-drop reordering
 - clearly indicate selected page
 
@@ -138,7 +139,8 @@ The editor must display the current page preview and support multiple tools.
 - present named presets rather than exposing raw image-processing jargon
 - provide brightness slider
 - provide contrast slider
-- update preview after changes
+- preview brightness and contrast changes live on the preview (client-side approximation)
+- update the authoritative preview after saving
 
 ### Erase tool
 

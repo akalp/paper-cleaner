@@ -105,7 +105,7 @@ Suggested fields:
 - `contrast`
 - `erase_paths`
 - `preview_path`
-- `final_render_cache_path` (optional)
+- `final_render_cache_path` (optional, not implemented)
 
 ### Erase path
 
@@ -115,9 +115,7 @@ Suggested fields:
 
 - `id`
 - `points`
-- `mode` (`fill_white`)
-
-## Data storage strategy
+- `mode` (`fill_white`)## Data storage strategy
 
 A simple local filesystem structure is sufficient.
 

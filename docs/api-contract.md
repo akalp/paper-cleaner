@@ -58,6 +58,8 @@ Response:
       "id": "doc_1",
       "filename": "page1.jpg",
       "order_index": 0,
+      "source_scale": 1.0,
+      "preview_scale": 1.0,
       "preview_version": "2026-04-18T12:15:00Z",
       "preview_url": "/api/documents/doc_1/preview",
       "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed"
@@ -65,6 +67,11 @@ Response:
   ]
 }
 ```
+
+> Timestamps use ISO 8601 with a `Z` suffix (for example `2026-04-18T12:15:00Z`).
+> `source_scale` maps full-resolution normalized coordinates to the served source image
+> pixels; `preview_scale` maps crop-space coordinates to the served final preview pixels.
+> Under the current pipeline both equal `min(1, 1600/width, 1600/height)`.
 
 ### Delete session
 
@@ -116,6 +123,8 @@ Response:
       "brightness": 0,
       "contrast": 0,
       "erase_paths": [],
+      "source_scale": 1.0,
+      "preview_scale": 1.0,
       "source_url": "/api/documents/doc_1/source",
       "preview_url": "/api/documents/doc_1/preview",
       "transformed_preview_url": "/api/documents/doc_1/preview?stage=transformed",
@@ -124,6 +133,22 @@ Response:
   ]
 }
 ```
+
+> An upload request that contains no image files returns `400 Bad Request` with
+> `"At least one image file is required."`.
+
+### Fetch source image
+
+`GET /api/documents/{documentId}/source`
+
+Returns the EXIF-normalized source image as a PNG, downscaled to at most 1600px.
+
+### Export single page image
+
+`GET /api/documents/{documentId}/export/image`
+
+Returns the current rendered document as a PNG download with a
+`Content-Disposition: attachment` header.
 
 ## Document updates
 
@@ -179,6 +204,7 @@ Request:
 {
   "erase_paths": [
     {
+      "id": "erase_abc123",
       "points": [
         [10, 10],
         [50, 10],
