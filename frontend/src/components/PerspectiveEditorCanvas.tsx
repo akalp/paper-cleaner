@@ -47,9 +47,11 @@ export function PerspectiveEditorCanvas({
       return;
     }
 
-    const updateSize = () => {
-      setContainerWidth(container.clientWidth || FALLBACK_CONTAINER_WIDTH);
-      setContainerHeight(container.clientHeight || 0);
+    const updateSize = (entries?: ResizeObserverEntry[]) => {
+      const entry = entries?.[0];
+      const contentRect = entry?.contentRect;
+      setContainerWidth(contentRect?.width || container.clientWidth || FALLBACK_CONTAINER_WIDTH);
+      setContainerHeight(contentRect?.height || container.clientHeight || 0);
     };
 
     updateSize();
