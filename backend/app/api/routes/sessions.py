@@ -37,9 +37,9 @@ async def delete_session(session_id: str) -> Response:
 @router.post("/sessions/{session_id}/documents", response_model=SessionResponse)
 async def upload_documents(
     session_id: str,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] | None = File(default=None),
 ) -> SessionResponse:
-    return document_service.upload_documents(session_id, files)
+    return document_service.upload_documents(session_id, files or [])
 
 
 @router.post("/sessions/{session_id}/reorder", response_model=SessionResponse)

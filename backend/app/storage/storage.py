@@ -65,7 +65,7 @@ class FileSystemStorage:
         return str(path.relative_to(self.root_dir))
 
     def utcnow(self) -> str:
-        return datetime.now(UTC).isoformat()
+        return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     def safe_path(self, relative: str) -> Path:
         self._assert_safe_relative(relative)
@@ -203,6 +203,31 @@ class FileSystemStorage:
                 self._document_to_record(document),
             )
         return document
+
+    def save_session_documents(
+        self,
+        session: SessionMetadata,
+        documents: list[DocumentMetadata],
+    ) -> None:
+        self.ensure_directories()
+        with self._connect() as connection:
+            for document in documents:
+                connection.execute(
+                    """
+                    INSERT INTO documents (
+                        id, session_id, filename, original_path, preview_path, order_index,
+                        normalized_width, normalized_height, auto_detect_status, auto_corners,
+                        user_corners, crop_rect, tone_preset, brightness, contrast, erase_paths,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    self._document_to_record(document),
+                )
+            connection.execute(
+                "UPDATE sessions SET updated_at = ? WHERE id = ?",
+                (session.updated_at, session.id),
+            )
 
     def list_documents(self, document_ids: list[str]) -> list[DocumentMetadata]:
         documents: list[DocumentMetadata] = []
@@ -376,6 +401,7 @@ class FileSystemStorage:
                 document.preview_path
             ):
                 continue
+            document = self._coerce_erase_paths_to_bounds(document)
             try:
                 connection.execute(
                     """
@@ -391,6 +417,21 @@ class FileSystemStorage:
                 )
             except sqlite3.IntegrityError:
                 continue
+
+    def _coerce_erase_paths_to_bounds(self, document: DocumentMetadata) -> DocumentMetadata:
+        width = document.crop_rect.width
+        height = document.crop_rect.height
+        if width <= 0 or height <= 0:
+            document.erase_paths = []
+            return document
+
+        in_bounds = [
+            erase_path
+            for erase_path in document.erase_paths
+            if all(0 <= x <= width and 0 <= y <= height for x, y in erase_path.points)
+        ]
+        document.erase_paths = in_bounds
+        return document
 
     def _document_to_record(self, document: DocumentMetadata) -> tuple[object, ...]:
         return (

@@ -11,6 +11,8 @@ from app.main import create_app
 from app.schemas.session import SessionMetadata
 from app.storage.storage import StorageConsistencyError, storage
 
+from helpers import apply_test_workspace, restore_test_workspace
+
 
 def test_safe_path_rejects_traversal_and_absolute_paths(backend_workspace: Path) -> None:
     with pytest.raises(StorageConsistencyError):
@@ -73,20 +75,15 @@ def test_delete_session_ignores_unsafe_session_ids(backend_workspace: Path) -> N
 
 def test_legacy_json_import_rejects_documents_with_unsafe_paths(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
-    backend_root = workspace_root / "backend"
-    data_root = workspace_root / "data"
-    metadata_root = data_root / "metadata"
-    session_metadata_dir = metadata_root / "sessions"
-    document_metadata_dir = metadata_root / "documents"
-    static_root = backend_root / "app" / "static"
+    session_metadata_dir = workspace_root / "data" / "metadata" / "sessions"
+    document_metadata_dir = workspace_root / "data" / "metadata" / "documents"
     session_metadata_dir.mkdir(parents=True)
     document_metadata_dir.mkdir(parents=True)
-    static_root.mkdir(parents=True)
 
     session_payload = {
         "id": "session_legacy",
-        "created_at": "2026-04-18T12:00:00+00:00",
-        "updated_at": "2026-04-18T12:00:00+00:00",
+        "created_at": "2026-04-18T12:00:00Z",
+        "updated_at": "2026-04-18T12:00:00Z",
         "document_ids": ["doc_safe", "doc_evil"],
     }
     safe_document = {
@@ -106,7 +103,7 @@ def test_legacy_json_import_rejects_documents_with_unsafe_paths(tmp_path: Path) 
         "brightness": 0,
         "contrast": 0,
         "erase_paths": [],
-        "updated_at": "2026-04-18T12:00:00+00:00",
+        "updated_at": "2026-04-18T12:00:00Z",
     }
     evil_document = dict(safe_document)
     evil_document.update(
@@ -120,33 +117,7 @@ def test_legacy_json_import_rejects_documents_with_unsafe_paths(tmp_path: Path) 
     (document_metadata_dir / "doc_safe.json").write_text(json.dumps(safe_document))
     (document_metadata_dir / "doc_evil.json").write_text(json.dumps(evil_document))
 
-    original_settings = {
-        "base_dir": settings.base_dir,
-        "static_dir": settings.static_dir,
-        "data_dir": settings.data_dir,
-        "uploads_dir": settings.uploads_dir,
-        "rendered_dir": settings.rendered_dir,
-        "previews_dir": settings.previews_dir,
-        "temp_dir": settings.temp_dir,
-        "metadata_dir": settings.metadata_dir,
-        "session_metadata_dir": settings.session_metadata_dir,
-        "document_metadata_dir": settings.document_metadata_dir,
-        "metadata_db_path": settings.metadata_db_path,
-    }
-    original_root_dir = storage.root_dir
-
-    settings.base_dir = backend_root
-    settings.static_dir = static_root
-    settings.data_dir = data_root
-    settings.uploads_dir = data_root / "uploads"
-    settings.rendered_dir = data_root / "rendered"
-    settings.previews_dir = settings.rendered_dir / "previews"
-    settings.temp_dir = data_root / "temp"
-    settings.metadata_dir = metadata_root
-    settings.session_metadata_dir = session_metadata_dir
-    settings.document_metadata_dir = document_metadata_dir
-    settings.metadata_db_path = metadata_root / "paper_cleaner.sqlite"
-    storage.root_dir = workspace_root
+    original_settings, original_root_dir = apply_test_workspace(workspace_root)
 
     try:
         with TestClient(create_app()) as client:
@@ -155,6 +126,4 @@ def test_legacy_json_import_rejects_documents_with_unsafe_paths(tmp_path: Path) 
             document_ids = [doc["id"] for doc in response.json()["documents"]]
             assert document_ids == ["doc_safe"]
     finally:
-        for key, value in original_settings.items():
-            setattr(settings, key, value)
-        storage.root_dir = original_root_dir
+        restore_test_workspace(original_settings, original_root_dir)

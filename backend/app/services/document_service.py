@@ -40,6 +40,7 @@ class DocumentService:
         next_order_index = len(session.document_ids)
         created_document_ids: list[str] = []
         created_paths: list[Path] = []
+        documents: list[DocumentMetadata] = []
 
         try:
             for offset, upload in enumerate(files):
@@ -73,27 +74,28 @@ class DocumentService:
                 created_paths.append(preview_path)
                 now = storage.utcnow()
 
-                document = DocumentMetadata(
-                    id=document_id,
-                    session_id=session_id,
-                    filename=filename,
-                    original_path=storage.public_path(original_path),
-                    preview_path=storage.public_path(preview_path),
-                    order_index=next_order_index + offset,
-                    normalized_width=width,
-                    normalized_height=height,
-                    auto_detect_status=detection_result.status,
-                    auto_corners=detection_result.corners,
-                    crop_rect=initial_crop_rect,
-                    updated_at=now,
+                documents.append(
+                    DocumentMetadata(
+                        id=document_id,
+                        session_id=session_id,
+                        filename=filename,
+                        original_path=storage.public_path(original_path),
+                        preview_path=storage.public_path(preview_path),
+                        order_index=next_order_index + offset,
+                        normalized_width=width,
+                        normalized_height=height,
+                        auto_detect_status=detection_result.status,
+                        auto_corners=detection_result.corners,
+                        crop_rect=initial_crop_rect,
+                        updated_at=now,
+                    )
                 )
-                storage.save_document(document)
                 created_paths.append(storage.document_metadata_path(document_id))
                 created_document_ids.append(document_id)
 
             session.document_ids.extend(created_document_ids)
             session.updated_at = storage.utcnow()
-            storage.save_session(session)
+            storage.save_session_documents(session, documents)
         except Exception:
             self._cleanup_paths(created_paths, session_id)
             raise
@@ -110,7 +112,10 @@ class DocumentService:
 
         preview_path = storage.safe_path(document.preview_path)
         if not preview_path.is_file():
-            self._regenerate_preview(document)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Preview for document '{document_id}' is not available yet.",
+            )
         return preview_path
 
     def render_preview_bytes(self, document_id: str, *, include_crop: bool) -> bytes:
@@ -165,8 +170,6 @@ class DocumentService:
                 document.crop_rect,
                 corners=effective_corners,
             )
-        if effective_corners != original_effective_corners or document.crop_rect != original_crop_rect:
-            self._clear_erase_paths(document)
         document.updated_at = storage.utcnow()
         storage.save_document(document)
         storage.touch_session(document.session_id, document.updated_at)
@@ -217,12 +220,6 @@ class DocumentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             ) from exc
-
-        if (
-            self._effective_corners(document) != original_effective_corners
-            or document.crop_rect != original_crop_rect
-        ):
-            self._clear_erase_paths(document)
 
         document.updated_at = storage.utcnow()
         storage.save_document(document)
@@ -347,10 +344,6 @@ class DocumentService:
             contrast=document.contrast,
             erase_paths=document.erase_paths,
         )
-
-    def _clear_erase_paths(self, document: DocumentMetadata) -> None:
-        if document.erase_paths:
-            document.erase_paths = []
 
     def _cleanup_paths(self, paths: list[Path], session_id: str) -> None:
         for path in reversed(paths):

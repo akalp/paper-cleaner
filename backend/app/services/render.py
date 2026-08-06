@@ -35,18 +35,58 @@ class RenderService:
         erase_paths: list[ErasePath] | None = None,
         include_crop: bool = True,
     ) -> Image.Image:
-        rendered = self.render_document_image(
+        prepared, prepared_corners, prepared_crop, prepared_erase = self._prepare_preview_input(
             image,
             corners=corners,
             crop_rect=crop_rect,
+            erase_paths=erase_paths,
+        )
+        rendered = self.render_document_image(
+            prepared,
+            corners=prepared_corners,
+            crop_rect=prepared_crop,
             tone_preset=tone_preset,
             brightness=brightness,
             contrast=contrast,
-            erase_paths=erase_paths,
+            erase_paths=prepared_erase,
             include_crop=include_crop,
         )
         rendered.thumbnail(settings.preview_max_size)
         return self._to_png_compatible(rendered)
+
+    def _prepare_preview_input(
+        self,
+        image: Image.Image,
+        *,
+        corners: list[Point],
+        crop_rect: CropRect,
+        erase_paths: list[ErasePath] | None,
+    ) -> tuple[Image.Image, list[Point], CropRect, list[ErasePath]]:
+        image_width, image_height = image.size
+        max_width, max_height = settings.preview_max_size
+        scale = min(1.0, max_width / image_width, max_height / image_height)
+        if scale >= 1.0:
+            return image, corners, crop_rect, erase_paths or []
+
+        scaled_image = image.resize(
+            (max(1, round(image_width * scale)), max(1, round(image_height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+        scaled_corners = [(x * scale, y * scale) for x, y in corners]
+        scaled_crop = CropRect(
+            x=round(crop_rect.x * scale),
+            y=round(crop_rect.y * scale),
+            width=max(1, round(crop_rect.width * scale)),
+            height=max(1, round(crop_rect.height * scale)),
+        )
+        scaled_erase = [
+            ErasePath(
+                points=[(x * scale, y * scale) for x, y in erase_path.points],
+                mode=erase_path.mode,
+            )
+            for erase_path in erase_paths or []
+        ]
+        return scaled_image, scaled_corners, scaled_crop, scaled_erase
 
     def render_document_image(
         self,

@@ -10,6 +10,8 @@ from app.core.config import settings
 from app.main import create_app
 from app.storage.storage import storage
 
+from helpers import apply_test_workspace, restore_test_workspace
+
 
 def test_create_session_is_persisted_in_sqlite_and_history(client: TestClient) -> None:
     response = client.post("/api/sessions")
@@ -94,20 +96,15 @@ def test_legacy_json_metadata_imports_once_and_does_not_reappear_after_delete(
     tmp_path: Path,
 ) -> None:
     workspace_root = tmp_path / "workspace"
-    backend_root = workspace_root / "backend"
-    data_root = workspace_root / "data"
-    metadata_root = data_root / "metadata"
-    session_metadata_dir = metadata_root / "sessions"
-    document_metadata_dir = metadata_root / "documents"
-    static_root = backend_root / "app" / "static"
+    session_metadata_dir = workspace_root / "data" / "metadata" / "sessions"
+    document_metadata_dir = workspace_root / "data" / "metadata" / "documents"
     session_metadata_dir.mkdir(parents=True)
     document_metadata_dir.mkdir(parents=True)
-    static_root.mkdir(parents=True)
 
     session_payload = {
         "id": "session_legacy",
-        "created_at": "2026-04-18T12:00:00+00:00",
-        "updated_at": "2026-04-18T12:00:00+00:00",
+        "created_at": "2026-04-18T12:00:00Z",
+        "updated_at": "2026-04-18T12:00:00Z",
         "document_ids": ["doc_legacy"],
     }
     document_payload = {
@@ -127,38 +124,12 @@ def test_legacy_json_metadata_imports_once_and_does_not_reappear_after_delete(
         "brightness": 0,
         "contrast": 0,
         "erase_paths": [],
-        "updated_at": "2026-04-18T12:00:00+00:00",
+        "updated_at": "2026-04-18T12:00:00Z",
     }
     (session_metadata_dir / "session_legacy.json").write_text(json.dumps(session_payload))
     (document_metadata_dir / "doc_legacy.json").write_text(json.dumps(document_payload))
 
-    original_settings = {
-        "base_dir": settings.base_dir,
-        "static_dir": settings.static_dir,
-        "data_dir": settings.data_dir,
-        "uploads_dir": settings.uploads_dir,
-        "rendered_dir": settings.rendered_dir,
-        "previews_dir": settings.previews_dir,
-        "temp_dir": settings.temp_dir,
-        "metadata_dir": settings.metadata_dir,
-        "session_metadata_dir": settings.session_metadata_dir,
-        "document_metadata_dir": settings.document_metadata_dir,
-        "metadata_db_path": settings.metadata_db_path,
-    }
-    original_root_dir = storage.root_dir
-
-    settings.base_dir = backend_root
-    settings.static_dir = static_root
-    settings.data_dir = data_root
-    settings.uploads_dir = data_root / "uploads"
-    settings.rendered_dir = data_root / "rendered"
-    settings.previews_dir = settings.rendered_dir / "previews"
-    settings.temp_dir = data_root / "temp"
-    settings.metadata_dir = metadata_root
-    settings.session_metadata_dir = session_metadata_dir
-    settings.document_metadata_dir = document_metadata_dir
-    settings.metadata_db_path = metadata_root / "paper_cleaner.sqlite"
-    storage.root_dir = workspace_root
+    original_settings, original_root_dir = apply_test_workspace(workspace_root)
 
     try:
         with TestClient(create_app()) as client:
@@ -173,6 +144,4 @@ def test_legacy_json_metadata_imports_once_and_does_not_reappear_after_delete(
             assert client.get("/api/sessions/session_legacy").status_code == 404
             assert client.get("/api/sessions").json()["sessions"] == []
     finally:
-        for key, value in original_settings.items():
-            setattr(settings, key, value)
-        storage.root_dir = original_root_dir
+        restore_test_workspace(original_settings, original_root_dir)

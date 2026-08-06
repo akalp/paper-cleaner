@@ -33,7 +33,7 @@ def apply_tone(
     if tone_preset == TonePreset.HIGH_CONTRAST_BW:
         toned = _adaptive_binary_threshold(toned)
     elif tone_preset == TonePreset.PRINTER_FRIENDLY:
-        toned = _lift_paper_background(toned)
+        toned = _apply_printer_friendly_curve(toned)
     return toned.convert("RGB")
 
 
@@ -54,6 +54,8 @@ def _apply_brightness_and_contrast(image: Image.Image, *, brightness: int, contr
 def _flatten_paper_background(image: Image.Image) -> Image.Image:
     grayscale = image.convert("L")
     image_array = np.asarray(grayscale, dtype=np.uint8)
+    if image_array.size == 0 or np.min(image_array) == np.max(image_array):
+        return grayscale
     shortest_side = min(image_array.shape)
     blur_sigma = max(shortest_side / 22.0, 15.0)
     background = cv2.GaussianBlur(
@@ -73,7 +75,9 @@ def _flatten_paper_background(image: Image.Image) -> Image.Image:
     return Image.fromarray(normalized.astype(np.uint8))
 
 
-def _lift_paper_background(image: Image.Image) -> Image.Image:
+def _apply_printer_friendly_curve(image: Image.Image) -> Image.Image:
+    # A mid-tone contrast curve that darkens ink tones and pushes near-white values to 255,
+    # improving printability without forcing hard thresholding.
     image_array = np.asarray(image.convert("L"), dtype=np.float32)
     lifted = 255.0 - ((255.0 - image_array) * 1.35)
     lifted[lifted > 238.0] = 255.0
@@ -82,6 +86,9 @@ def _lift_paper_background(image: Image.Image) -> Image.Image:
 
 def _adaptive_binary_threshold(image: Image.Image) -> Image.Image:
     image_array = np.asarray(image.convert("L"), dtype=np.uint8)
+    if min(image_array.shape) < 3:
+        _, thresholded = cv2.threshold(image_array, 127, 255, cv2.THRESH_BINARY)
+        return Image.fromarray(thresholded)
     block_size = _adaptive_threshold_block_size(image_array)
     thresholded = cv2.adaptiveThreshold(
         image_array,
@@ -99,4 +106,5 @@ def _adaptive_threshold_block_size(image_array: np.ndarray) -> int:
     block_size = max(31, int(shortest_side / 12))
     if block_size % 2 == 0:
         block_size += 1
-    return block_size
+    largest_odd_side = shortest_side if shortest_side % 2 == 1 else shortest_side - 1
+    return min(block_size, max(largest_odd_side, 3))

@@ -50,6 +50,8 @@ export interface DocumentResponse {
   brightness: number;
   contrast: number;
   erase_paths: ErasePath[];
+  source_scale: number;
+  preview_scale: number;
   source_url: string;
   preview_url: string;
   transformed_preview_url: string;

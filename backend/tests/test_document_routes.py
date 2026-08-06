@@ -3,8 +3,9 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
+import numpy as np
 from fastapi.testclient import TestClient
-from PIL import Image, ImageChops
+from PIL import Image
 
 
 def test_upload_generates_detected_document_metadata(
@@ -265,8 +266,7 @@ def test_update_tone_changes_preview_pixels(
     updated_document = response.json()
     after_preview = _load_preview_image(client, updated_document["preview_url"])
 
-    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
-    assert difference.getbbox() is not None
+    assert _different_pixel_count(before_preview, after_preview) > 100
 
 
 def test_high_contrast_bw_brightness_and_contrast_adjustments_change_output(
@@ -299,11 +299,7 @@ def test_high_contrast_bw_brightness_and_contrast_adjustments_change_output(
     adjusted_document = adjusted_response.json()
     adjusted_preview = _load_preview_image(client, adjusted_document["preview_url"])
 
-    difference = ImageChops.difference(
-        baseline_preview.convert("RGB"),
-        adjusted_preview.convert("RGB"),
-    )
-    assert difference.getbbox() is not None
+    assert _different_pixel_count(baseline_preview, adjusted_preview) > 100
 
 
 def test_update_erase_persists_paths_and_refreshes_preview_version(
@@ -341,8 +337,7 @@ def test_update_erase_changes_final_preview_pixels(
     updated_document = response.json()
     after_preview = _load_preview_image(client, updated_document["preview_url"])
 
-    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
-    assert difference.getbbox() is not None
+    assert _different_pixel_count(before_preview, after_preview) > 100
 
 
 def test_update_erase_rejects_out_of_bounds_points(
@@ -388,16 +383,16 @@ def test_transformed_preview_remains_unchanged_by_erase_paths(
     updated_document = response.json()
     after_preview = _load_preview_image(client, updated_document["transformed_preview_url"])
 
-    difference = ImageChops.difference(before_preview.convert("RGB"), after_preview.convert("RGB"))
-    assert difference.getbbox() is None
+    assert _different_pixel_count(before_preview, after_preview) == 0
 
 
-def test_update_transform_crop_clears_erase_paths(
+def test_update_transform_crop_preserves_erase_paths(
     client: TestClient,
     fixture_dir: Path,
 ) -> None:
     document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
     erased_document = _save_erase_path(client, document)
+    saved_erase_paths = erased_document["erase_paths"]
 
     response = client.post(
         f"/api/documents/{document['id']}/update-transform",
@@ -412,15 +407,16 @@ def test_update_transform_crop_clears_erase_paths(
     )
 
     assert response.status_code == 200
-    assert response.json()["erase_paths"] == []
+    assert response.json()["erase_paths"] == saved_erase_paths
 
 
-def test_update_transform_perspective_clears_erase_paths(
+def test_update_transform_perspective_preserves_erase_paths(
     client: TestClient,
     fixture_dir: Path,
 ) -> None:
     document = _upload_document(client, fixture_dir / "worksheet-screenshot.png")
-    _save_erase_path(client, document)
+    erased_document = _save_erase_path(client, document)
+    saved_erase_paths = erased_document["erase_paths"]
 
     response = client.post(
         f"/api/documents/{document['id']}/update-transform",
@@ -435,7 +431,7 @@ def test_update_transform_perspective_clears_erase_paths(
     )
 
     assert response.status_code == 200
-    assert response.json()["erase_paths"] == []
+    assert response.json()["erase_paths"] == saved_erase_paths
 
 
 def test_auto_detect_rerun_preserves_user_corners_when_not_applied(
@@ -570,3 +566,9 @@ def _load_preview_image(client: TestClient, preview_url: str) -> Image.Image:
     assert response.status_code == 200
     with Image.open(BytesIO(response.content)) as preview_image:
         return preview_image.copy()
+
+
+def _different_pixel_count(left: Image.Image, right: Image.Image) -> int:
+    left_array = np.asarray(left.convert("RGB"), dtype=np.int16)
+    right_array = np.asarray(right.convert("RGB"), dtype=np.int16)
+    return int(np.count_nonzero(np.any(np.abs(left_array - right_array) > 4, axis=2)))

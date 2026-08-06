@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 
+from app.core.config import settings
 from app.schemas.document import DocumentResponse
 from app.schemas.session import (
     ReorderSessionDocumentsRequest,
@@ -7,6 +8,13 @@ from app.schemas.session import (
     SessionResponse,
 )
 from app.storage.storage import StorageConsistencyError, storage
+
+
+def _thumbnail_scale(original_width: int, original_height: int) -> float:
+    max_width, max_height = settings.preview_max_size
+    if original_width <= max_width and original_height <= max_height:
+        return 1.0
+    return min(max_width / original_width, max_height / original_height)
 
 
 class SessionService:
@@ -102,6 +110,7 @@ class SessionService:
             )
 
     def to_document_response(self, document) -> DocumentResponse:
+        source_scale = _thumbnail_scale(document.normalized_width, document.normalized_height)
         return DocumentResponse(
             id=document.id,
             filename=document.filename,
@@ -116,6 +125,8 @@ class SessionService:
             brightness=document.brightness,
             contrast=document.contrast,
             erase_paths=document.erase_paths,
+            source_scale=source_scale,
+            preview_scale=source_scale,
             source_url=f"/api/documents/{document.id}/source",
             preview_url=f"/api/documents/{document.id}/preview",
             transformed_preview_url=f"/api/documents/{document.id}/preview?stage=transformed",

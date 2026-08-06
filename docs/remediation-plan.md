@@ -40,16 +40,16 @@ Regression tests added in `frontend/src/components/SelectedPageEditor.test.tsx`
 
 | Finding | Task | Status |
 | --- | --- | --- |
-| M2 | Add `source_scale`/`preview_scale` to payload; document; >1600px test | |
-| M3 | Downscale before pipeline in preview; cache `stage=transformed` | |
-| M8 | Atomic upload (transaction + rollback) | |
-| A4 | Preserve erase regions on perspective/crop change | |
-| A1-A3 | `enhance.py` guards + `_lift_paper_background` naming | |
-| A5 | Re-validate legacy erase paths on load | |
-| A6 | `GET /preview` pure (404 on cache miss) | |
-| A7 | Empty upload returns documented 400 | |
-| A8 | Normalize timestamp format | |
-| C4/C1-C3 | Missing tests + test hygiene | |
+| M2 | Add `source_scale`/`preview_scale` to payload; document; >1600px test | done |
+| M3 | Downscale before pipeline in preview; cache `stage=transformed` | done (downscale-before-pipeline) |
+| M8 | Atomic upload (transaction + rollback) | done |
+| A4 | Preserve erase regions on perspective/crop change | done |
+| A1-A3 | `enhance.py` guards + `_lift_paper_background` naming | done |
+| A5 | Re-validate legacy erase paths on load | done |
+| A6 | `GET /preview` pure (404 on cache miss) | done |
+| A7 | Empty upload returns documented 400 | done |
+| A8 | Normalize timestamp format | done |
+| C4/C1-C3 | Missing tests + test hygiene | done (49 backend tests pass; shared test workspace helpers in `tests/helpers.py`) |
 
 ## Phase 4 — Frontend UX & polish
 

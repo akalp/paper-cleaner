@@ -62,6 +62,8 @@ function makeDocument(overrides: Partial<DocumentResponse> = {}): DocumentRespon
     brightness: 0,
     contrast: 0,
     erase_paths: [],
+    source_scale: 1,
+    preview_scale: 1,
     source_url: "/source",
     preview_url: "/preview",
     transformed_preview_url: "/transformed",

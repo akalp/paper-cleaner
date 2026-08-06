@@ -68,6 +68,8 @@ class DocumentResponse(BaseModel):
     brightness: int = Field(ge=-100, le=100)
     contrast: int = Field(ge=-100, le=100)
     erase_paths: list[ErasePath]
+    source_scale: float = Field(gt=0, le=1)
+    preview_scale: float = Field(gt=0, le=1)
     source_url: str
     preview_url: str
     transformed_preview_url: str
