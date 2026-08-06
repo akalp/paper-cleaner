@@ -5,7 +5,6 @@ from app.schemas.document import (
     ErasePath,
     TonePreset,
     UpdateToneRequest,
-    UploadDocumentsResponse,
 )
 from app.schemas.session import SessionMetadata, SessionResponse
 
@@ -18,5 +17,4 @@ __all__ = [
     "SessionMetadata",
     "SessionResponse",
     "UpdateToneRequest",
-    "UploadDocumentsResponse",
 ]

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Image as KonvaImage, Layer, Line, Stage, Text } from "react-konva";
 
+import { useLoadedImage } from "../hooks/useLoadedImage";
 import type { Point } from "../types";
 import {
   canvasPointToImagePoint,
@@ -24,53 +25,6 @@ interface PerspectiveEditorCanvasProps {
   onCornerChange: (index: number, point: Point) => void;
 }
 
-interface LoadedImageState {
-  hasError: boolean;
-  image: HTMLImageElement | null;
-}
-
-function useLoadedImage(url: string): LoadedImageState {
-  const [state, setState] = useState<LoadedImageState>({
-    image: null,
-    hasError: false,
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-    const image = new window.Image();
-
-    image.onload = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image,
-        hasError: false,
-      });
-    };
-
-    image.onerror = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image: null,
-        hasError: true,
-      });
-    };
-
-    image.src = url;
-
-    return () => {
-      isMounted = false;
-    };
-  }, [url]);
-
-  return state;
-}
-
 export function PerspectiveEditorCanvas({
   activeHandleIndex,
   corners,
@@ -83,7 +37,9 @@ export function PerspectiveEditorCanvas({
 }: PerspectiveEditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(FALLBACK_CONTAINER_WIDTH);
-  const { image, hasError } = useLoadedImage(imageUrl);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const loadedImage = useLoadedImage(imageUrl);
+  const isImageLoading = loadedImage.loadedUrl !== imageUrl;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -91,13 +47,14 @@ export function PerspectiveEditorCanvas({
       return;
     }
 
-    const updateWidth = () => {
+    const updateSize = () => {
       setContainerWidth(container.clientWidth || FALLBACK_CONTAINER_WIDTH);
+      setContainerHeight(container.clientHeight || 0);
     };
 
-    updateWidth();
+    updateSize();
 
-    const resizeObserver = new ResizeObserver(updateWidth);
+    const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
 
     return () => {
@@ -110,9 +67,9 @@ export function PerspectiveEditorCanvas({
       imageWidth,
       imageHeight,
       Math.max(containerWidth, 280),
-      MAX_STAGE_HEIGHT,
+      containerHeight > 0 ? containerHeight : MAX_STAGE_HEIGHT,
     );
-  }, [containerWidth, imageHeight, imageWidth]);
+  }, [containerHeight, containerWidth, imageHeight, imageWidth]);
 
   const polygonPoints = useMemo(() => {
     return corners.flatMap((point) => imagePointToCanvasPoint(point, viewport));
@@ -120,7 +77,11 @@ export function PerspectiveEditorCanvas({
 
   return (
     <div ref={containerRef} className="source-editor-frame">
-      {hasError ? (
+      {isImageLoading ? (
+        <div className="editor-loading-state">
+          <p>Loading source image...</p>
+        </div>
+      ) : loadedImage.hasError ? (
         <div className="preview-error" role="alert">
           <h3>Source image unavailable</h3>
           <p>
@@ -128,7 +89,7 @@ export function PerspectiveEditorCanvas({
             preview may still load if the backend render succeeded.
           </p>
         </div>
-      ) : image === null ? (
+      ) : loadedImage.image === null ? (
         <div className="editor-loading-state">
           <p>Loading source image...</p>
         </div>
@@ -136,7 +97,7 @@ export function PerspectiveEditorCanvas({
         <Stage width={viewport.width} height={viewport.height}>
           <Layer>
             <KonvaImage
-              image={image}
+              image={loadedImage.image}
               x={viewport.offsetX}
               y={viewport.offsetY}
               width={imageWidth * viewport.scale}

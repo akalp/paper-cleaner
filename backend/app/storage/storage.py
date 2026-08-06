@@ -304,19 +304,6 @@ class FileSystemStorage:
         except OSError:
             return
 
-    def _write_json_atomic(self, path: Path, payload: dict[str, object]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = path.with_suffix(f"{path.suffix}.tmp")
-        try:
-            temporary_path.write_text(
-                json.dumps(payload, indent=2) + "\n",
-                encoding="utf-8",
-            )
-            temporary_path.replace(path)
-        finally:
-            if temporary_path.exists():
-                temporary_path.unlink()
-
     def _ensure_database(self) -> None:
         settings.metadata_db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:

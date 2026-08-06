@@ -73,7 +73,7 @@ function sortDocuments(documents: DocumentResponse[]): DocumentResponse[] {
 function buildCacheBustedPreviewUrl(previewUrl: string, token: string): string {
   const previewLocation = new URL(previewUrl, window.location.origin);
   previewLocation.searchParams.set("v", token);
-  return `${previewLocation.pathname}${previewLocation.search}`;
+  return previewLocation.href;
 }
 
 function downloadExportFile(file: ExportFileResponse) {
@@ -84,7 +84,7 @@ function downloadExportFile(file: ExportFileResponse) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(objectUrl);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 export function useWorkspaceSession() {
@@ -99,6 +99,7 @@ export function useWorkspaceSession() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [documentActionError, setDocumentActionError] = useState<string | null>(null);
   const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isReordering, setIsReordering] = useState(false);
   const [activeExportAction, setActiveExportAction] = useState<ExportAction | null>(null);
   const [activeDocumentAction, setActiveDocumentAction] = useState<ActiveDocumentAction | null>(
@@ -128,6 +129,13 @@ export function useWorkspaceSession() {
     void refreshSessionHistory().catch(() => {
       // History refresh is best-effort; failures surface on the next explicit action.
     });
+  }
+
+  function showSuccessNotice(message: string) {
+    setSuccessNotice(message);
+    window.setTimeout(() => {
+      setSuccessNotice((current) => (current === message ? null : current));
+    }, 4000);
   }
 
   useEffect(() => {
@@ -330,6 +338,7 @@ export function useWorkspaceSession() {
         return nextSession.documents[0]?.id ?? null;
       });
       await refreshSessionHistory();
+      showSuccessNotice("Upload complete.");
     } catch (error) {
       setUploadError(getErrorMessage(error, "Upload failed."));
     } finally {
@@ -374,6 +383,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Perspective saved.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save perspective changes."));
     } finally {
@@ -393,6 +403,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Perspective reset.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset perspective changes."));
     } finally {
@@ -411,6 +422,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Auto-detect refreshed.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not re-run auto-detect."));
     } finally {
@@ -430,6 +442,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Crop saved.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save crop changes."));
     } finally {
@@ -449,6 +462,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Crop reset.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset crop."));
     } finally {
@@ -474,6 +488,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Tone settings saved.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save tone changes."));
     } finally {
@@ -494,6 +509,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Tone settings reset.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not reset tone settings."));
     } finally {
@@ -512,6 +528,7 @@ export function useWorkspaceSession() {
       });
       mergeDocument(nextDocument);
       refreshHistoryBestEffort();
+      showSuccessNotice("Erase regions saved.");
     } catch (error) {
       setDocumentActionError(getErrorMessage(error, "Could not save erase changes."));
     } finally {
@@ -530,6 +547,7 @@ export function useWorkspaceSession() {
 
     try {
       downloadExportFile(await exportDocumentImage(selectedDocument.id));
+      showSuccessNotice("Download started.");
     } catch (error) {
       setWorkspaceActionError(getErrorMessage(error, "Could not export the current page."));
     } finally {
@@ -548,6 +566,7 @@ export function useWorkspaceSession() {
 
     try {
       downloadExportFile(await exportSessionZip(session.id));
+      showSuccessNotice("Download started.");
     } catch (error) {
       setWorkspaceActionError(getErrorMessage(error, "Could not export the ZIP archive."));
     } finally {
@@ -566,6 +585,7 @@ export function useWorkspaceSession() {
 
     try {
       downloadExportFile(await exportSessionPdf(session.id));
+      showSuccessNotice("Download started.");
     } catch (error) {
       setWorkspaceActionError(getErrorMessage(error, "Could not export the PDF."));
     } finally {
@@ -587,9 +607,15 @@ export function useWorkspaceSession() {
     uploadError,
     documentActionError,
     workspaceActionError,
+    successNotice,
     isReordering,
     activeExportAction,
     activeDocumentAction,
+    clearSessionError: () => setSessionError(null),
+    clearUploadError: () => setUploadError(null),
+    clearDocumentActionError: () => setDocumentActionError(null),
+    clearWorkspaceActionError: () => setWorkspaceActionError(null),
+    dismissSuccessNotice: () => setSuccessNotice(null),
     createNewSession,
     openSession,
     removeSession,

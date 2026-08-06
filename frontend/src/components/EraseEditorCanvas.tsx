@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Stage, Text } from "react-konva";
 
+import { useLoadedImage } from "../hooks/useLoadedImage";
 import type { ErasePath, Point } from "../types";
 import {
   canvasPointToImagePoint,
@@ -19,58 +20,6 @@ interface EraseEditorCanvasProps {
   imageUrl: string;
   imageWidth: number;
   onAddPoint: (point: Point) => void;
-}
-
-interface LoadedImageState {
-  hasError: boolean;
-  image: HTMLImageElement | null;
-  loadedUrl: string | null;
-}
-
-function useLoadedImage(url: string): LoadedImageState {
-  const [state, setState] = useState<LoadedImageState>({
-    image: null,
-    hasError: false,
-    loadedUrl: null,
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const image = new window.Image();
-
-    image.onload = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image,
-        hasError: false,
-        loadedUrl: url,
-      });
-    };
-
-    image.onerror = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image: null,
-        hasError: true,
-        loadedUrl: url,
-      });
-    };
-
-    image.src = url;
-
-    return () => {
-      isMounted = false;
-    };
-  }, [url]);
-
-  return state;
 }
 
 function getPathLabelPosition(points: Point[], fallback: Point): Point {
@@ -97,6 +46,7 @@ export function EraseEditorCanvas({
 }: EraseEditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(FALLBACK_CONTAINER_WIDTH);
+  const [containerHeight, setContainerHeight] = useState(0);
   const loadedImage = useLoadedImage(imageUrl);
 
   useEffect(() => {
@@ -105,13 +55,14 @@ export function EraseEditorCanvas({
       return;
     }
 
-    const updateWidth = () => {
+    const updateSize = () => {
       setContainerWidth(container.clientWidth || FALLBACK_CONTAINER_WIDTH);
+      setContainerHeight(container.clientHeight || 0);
     };
 
-    updateWidth();
+    updateSize();
 
-    const resizeObserver = new ResizeObserver(updateWidth);
+    const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
 
     return () => {
@@ -124,9 +75,9 @@ export function EraseEditorCanvas({
       imageWidth,
       imageHeight,
       Math.max(containerWidth, 280),
-      MAX_STAGE_HEIGHT,
+      containerHeight > 0 ? containerHeight : MAX_STAGE_HEIGHT,
     );
-  }, [containerWidth, imageHeight, imageWidth]);
+  }, [containerHeight, containerWidth, imageHeight, imageWidth]);
 
   const activePathPoints = useMemo(() => {
     return activePath.flatMap((point) => imagePointToCanvasPoint(point, viewport));
@@ -201,7 +152,7 @@ export function EraseEditorCanvas({
               );
 
               return (
-                <Fragment key={`erase-path-${index}`}>
+                <Fragment key={erasePath.id}>
                   <Line
                     points={polygonPoints}
                     closed
@@ -223,6 +174,15 @@ export function EraseEditorCanvas({
                 </Fragment>
               );
             })}
+
+            {activePath.length >= 3 ? (
+              <Line
+                points={activePathPoints}
+                closed
+                fill="rgba(255, 255, 255, 0.85)"
+                listening={false}
+              />
+            ) : null}
 
             {activePath.length >= 2 ? (
               <Line

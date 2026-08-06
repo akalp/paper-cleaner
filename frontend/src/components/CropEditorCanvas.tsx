@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Rect, Stage, Text } from "react-konva";
 
+import { useLoadedImage } from "../hooks/useLoadedImage";
 import type { CropRect } from "../types";
 import type { CropHandle } from "../utils/perspectiveGeometry";
 import {
@@ -27,57 +28,6 @@ interface CropEditorCanvasProps {
   imageUrl: string;
   imageWidth: number;
   onCropRectChange: (cropRect: CropRect) => void;
-}
-
-interface LoadedImageState {
-  hasError: boolean;
-  image: HTMLImageElement | null;
-  loadedUrl: string | null;
-}
-
-function useLoadedImage(url: string): LoadedImageState {
-  const [state, setState] = useState<LoadedImageState>({
-    image: null,
-    hasError: false,
-    loadedUrl: null,
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-    const image = new window.Image();
-
-    image.onload = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image,
-        hasError: false,
-        loadedUrl: url,
-      });
-    };
-
-    image.onerror = () => {
-      if (!isMounted) {
-        return;
-      }
-
-      setState({
-        image: null,
-        hasError: true,
-        loadedUrl: url,
-      });
-    };
-
-    image.src = url;
-
-    return () => {
-      isMounted = false;
-    };
-  }, [url]);
-
-  return state;
 }
 
 function getCanvasCropRect(cropRect: CropRect, scale: number, offsetX: number, offsetY: number) {
@@ -118,6 +68,7 @@ export function CropEditorCanvas({
 }: CropEditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(FALLBACK_CONTAINER_WIDTH);
+  const [containerHeight, setContainerHeight] = useState(0);
   const [activeHandleState, setActiveHandleState] = useState<{
     handle: CropHandle | null;
     imageUrl: string;
@@ -133,13 +84,14 @@ export function CropEditorCanvas({
       return;
     }
 
-    const updateWidth = () => {
+    const updateSize = () => {
       setContainerWidth(container.clientWidth || FALLBACK_CONTAINER_WIDTH);
+      setContainerHeight(container.clientHeight || 0);
     };
 
-    updateWidth();
+    updateSize();
 
-    const resizeObserver = new ResizeObserver(updateWidth);
+    const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(container);
 
     return () => {
@@ -152,9 +104,9 @@ export function CropEditorCanvas({
       imageWidth,
       imageHeight,
       Math.max(containerWidth, 280),
-      MAX_STAGE_HEIGHT,
+      containerHeight > 0 ? containerHeight : MAX_STAGE_HEIGHT,
     );
-  }, [containerWidth, imageHeight, imageWidth]);
+  }, [containerHeight, containerWidth, imageHeight, imageWidth]);
 
   const canvasCropRect = useMemo(() => {
     return getCanvasCropRect(cropRect, viewport.scale, viewport.offsetX, viewport.offsetY);
@@ -278,6 +230,15 @@ export function CropEditorCanvas({
               }}
             />
 
+            <Rect
+              x={canvasCropRect.x + 6}
+              y={canvasCropRect.y + 6}
+              width={130}
+              height={24}
+              fill="rgba(248, 246, 240, 0.92)"
+              cornerRadius={6}
+              listening={false}
+            />
             <Text
               x={canvasCropRect.x + 12}
               y={canvasCropRect.y + 10}
@@ -303,6 +264,18 @@ export function CropEditorCanvas({
                   stroke="#f8f6f0"
                   strokeWidth={3}
                   draggable={!disabled}
+                  dragBoundFunc={(position) => {
+                    return {
+                      x: Math.min(
+                        Math.max(position.x, viewport.offsetX),
+                        viewport.offsetX + imageRenderWidth,
+                      ),
+                      y: Math.min(
+                        Math.max(position.y, viewport.offsetY),
+                        viewport.offsetY + imageRenderHeight,
+                      ),
+                    };
+                  }}
                   onDragStart={() => {
                     setActiveHandleState({ handle, imageUrl });
                   }}

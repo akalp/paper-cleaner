@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from io import BytesIO
+import logging
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import HTTPException, status
 
 from app.services.export_image import export_image_service
 from app.storage.storage import StorageConsistencyError, storage
+
+logger = logging.getLogger("paper_cleaner")
 
 
 class ExportZipService:
@@ -42,6 +45,7 @@ class ExportZipService:
         except HTTPException:
             raise
         except Exception as exc:
+            logger.exception("Session '%s' ZIP export failed.", session_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Session '{session_id}' could not be exported as a ZIP archive.",

@@ -30,6 +30,7 @@ class EraseService:
 
             validated_paths.append(
                 ErasePath(
+                    id=erase_path.id,
                     points=points,
                     mode=erase_path.mode,
                 )
@@ -88,8 +89,6 @@ class EraseService:
             return (255, 255)
         if image.mode == "RGBA":
             return (255, 255, 255, 255)
-        if image.mode == "1":
-            return 1
         return (255, 255, 255)
 
 

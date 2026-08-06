@@ -32,6 +32,7 @@ export interface CropRect {
 }
 
 export interface ErasePath {
+  id: string;
   points: Point[];
   mode: ErasePathMode;
 }

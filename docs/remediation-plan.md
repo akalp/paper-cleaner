@@ -55,20 +55,20 @@ Regression tests added in `frontend/src/components/SelectedPageEditor.test.tsx`
 
 | Finding | Task | Status |
 | --- | --- | --- |
-| M6 | Page thumbnails + truthful status | |
-| M7 | Live tone preview (client-side approximation) | |
-| L1+B10 | Dismissible banners, per-action retry, success feedback | |
-| L2 | Delayed `revokeObjectURL` | |
-| L3 | Shared `useLoadedImage` with `loadedUrl` gate | |
-| L4 | Load or drop referenced fonts | |
-| L5 | `:focus-visible`, tablist arrows, `prefers-reduced-motion` | |
-| L6 | Crop readout contrast shield | |
-| L7 | Erase ergonomics (remove-last-point, Escape, in-progress fill) | |
-| L8 | Upload size/count limits; guard `delete_session` path | |
-| L9 | Logging in error paths | |
-| L10+B8 | Dead code + phase classes removal | |
-| B3-B6, B9 | Clamp, `dragBoundFunc`, vertical fit, origin-safe URLs, session label | |
-| ErasePath.id | Add `id` to schema + frontend; key regions by id | |
+| M6 | Page thumbnails + truthful status | done |
+| M7 | Live tone preview (client-side approximation) | done (live B/C filter + note) |
+| L1+B10 | Dismissible banners, per-action retry, success feedback | done (dismissible + success notices) |
+| L2 | Delayed `revokeObjectURL` | done |
+| L3 | Shared `useLoadedImage` with `loadedUrl` gate | done |
+| L4 | Load or drop referenced fonts | done (self-hosted @fontsource) |
+| L5 | `:focus-visible`, tablist arrows, `prefers-reduced-motion` | done |
+| L6 | Crop readout contrast shield | done |
+| L7 | Erase ergonomics (remove-last-point, Escape, in-progress fill) | done |
+| L8 | Upload size/count limits; guard `delete_session` path | done (limits; path guard in Phase 1) |
+| L9 | Logging in error paths | done |
+| L10+B8 | Dead code + phase classes removal | done |
+| B3-B6, B9 | Clamp, `dragBoundFunc`, vertical fit, origin-safe URLs, session label | done |
+| ErasePath.id | Add `id` to schema + frontend; key regions by id | done |
 
 ## Phase 5 — Docs & finalize
 

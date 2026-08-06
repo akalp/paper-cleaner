@@ -150,6 +150,7 @@ type EditorDraftAction =
   | { type: "add-erase-point"; point: Point }
   | { type: "complete-erase-region" }
   | { type: "cancel-erase-region" }
+  | { type: "remove-last-erase-point" }
   | { type: "undo-last-erase" }
   | { type: "clear-erase" };
 
@@ -256,6 +257,7 @@ function editorDraftReducer(state: EditorDraftState, action: EditorDraftAction):
         erasePaths: [
           ...state.erasePaths,
           {
+            id: crypto.randomUUID(),
             points: state.activeErasePoints,
             mode: "fill_white",
           },
@@ -265,6 +267,11 @@ function editorDraftReducer(state: EditorDraftState, action: EditorDraftAction):
       return {
         ...state,
         activeErasePoints: [],
+      };
+    case "remove-last-erase-point":
+      return {
+        ...state,
+        activeErasePoints: state.activeErasePoints.slice(0, -1),
       };
     case "undo-last-erase":
       return {
@@ -362,12 +369,54 @@ export function SelectedPageEditor({
     document.tone_preset === DEFAULT_TONE_PRESET &&
     document.brightness === DEFAULT_TONE_BRIGHTNESS &&
     document.contrast === DEFAULT_TONE_CONTRAST;
+  const tonePreviewFilter = useMemo(() => {
+    if (editorMode !== "tone" || document === null) {
+      return undefined;
+    }
+    const brightnessFactor = (1 + draft.brightness / 100) / (1 + document.brightness / 100);
+    const contrastFactor = (1 + draft.contrast / 100) / (1 + document.contrast / 100);
+    return `brightness(${brightnessFactor.toFixed(3)}) contrast(${contrastFactor.toFixed(3)})`;
+  }, [editorMode, document, draft.brightness, draft.contrast]);
   const isCropAtFullBounds =
     document !== null &&
     fullCropRect !== null &&
     areCropRectsEqual(document.crop_rect, fullCropRect);
   const hasActiveEraseRegion = draft.activeErasePoints.length > 0;
   const canCompleteEraseRegion = draft.activeErasePoints.length >= 3;
+  const EDITOR_MODES: EditorMode[] = ["perspective", "crop", "tone", "erase"];
+
+  useEffect(() => {
+    if (editorMode !== "erase" || !hasActiveEraseRegion) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        dispatchDraft({ type: "cancel-erase-region" });
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [editorMode, hasActiveEraseRegion]);
+
+  function handleTablistKeyDown(event: React.KeyboardEvent) {
+    const currentIndex = EDITOR_MODES.indexOf(editorMode);
+    let nextIndex: number;
+
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % EDITOR_MODES.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + EDITOR_MODES.length) % EDITOR_MODES.length;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    setEditorMode(EDITOR_MODES[nextIndex]);
+  }
 
   function updateCorner(index: number, point: Point) {
     dispatchDraft({ type: "update-corner", index, point });
@@ -387,6 +436,10 @@ export function SelectedPageEditor({
 
   function handleCancelEraseRegion() {
     dispatchDraft({ type: "cancel-erase-region" });
+  }
+
+  function handleRemoveLastErasePoint() {
+    dispatchDraft({ type: "remove-last-erase-point" });
   }
 
   function handleUndoLastErase() {
@@ -593,8 +646,8 @@ export function SelectedPageEditor({
           </div>
 
           <p className="editor-instructions">
-            Use named cleanup presets, then fine-tune brightness and contrast before saving the
-            page-specific tone settings.
+            Use named cleanup presets, then fine-tune brightness and contrast. Slider changes
+            preview instantly; the selected preset is applied when you save.
           </p>
 
           <ToneControls
@@ -685,6 +738,14 @@ export function SelectedPageEditor({
               onClick={handleCancelEraseRegion}
             >
               Cancel Region
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              disabled={isActionPending || draft.activeErasePoints.length === 0}
+              onClick={handleRemoveLastErasePoint}
+            >
+              Remove Last Point
             </button>
             <button
               className="secondary-action"
@@ -816,7 +877,12 @@ export function SelectedPageEditor({
           </p>
         </div>
 
-        <div className="tool-mode-switcher" role="tablist" aria-label="Editor mode">
+        <div
+          className="tool-mode-switcher"
+          role="tablist"
+          aria-label="Editor mode"
+          onKeyDown={handleTablistKeyDown}
+        >
           <button
             className={`tool-mode-button${editorMode === "perspective" ? " is-active" : ""}`}
             type="button"
@@ -877,12 +943,16 @@ export function SelectedPageEditor({
           message="Upload pages first, then refine perspective, crop, tone, and erase here."
         />
       ) : (
-        <article className="editor-card editor-card--phase5">
+        <article className="editor-card">
           <div className="editor-workspace">
             <div className="editor-surface">{renderEditorSurface()}</div>
 
             <div className="preview-frame preview-frame--result">
-              <PreviewPane filename={document.filename} previewUrl={document.preview_url} />
+              <PreviewPane
+                filename={document.filename}
+                previewUrl={document.preview_url}
+                liveFilter={tonePreviewFilter}
+              />
             </div>
           </div>
 
@@ -902,7 +972,7 @@ export function SelectedPageEditor({
               ) : null}
             </div>
 
-            <dl className="document-metadata document-metadata--phase5">
+            <dl className="document-metadata">
               <div>
                 <dt>Order</dt>
                 <dd>{document.order_index + 1}</dd>
@@ -959,9 +1029,10 @@ export function SelectedPageEditor({
 interface PreviewPaneProps {
   filename: string;
   previewUrl: string;
+  liveFilter?: string;
 }
 
-function PreviewPane({ filename, previewUrl }: PreviewPaneProps) {
+function PreviewPane({ filename, previewUrl, liveFilter }: PreviewPaneProps) {
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
   const hasPreviewError = failedPreviewUrl === previewUrl;
 
@@ -985,6 +1056,7 @@ function PreviewPane({ filename, previewUrl }: PreviewPaneProps) {
         className="preview-image"
         src={previewUrl}
         alt={`Transformed preview of ${filename}`}
+        style={liveFilter ? { filter: liveFilter } : undefined}
         onError={() => setFailedPreviewUrl(previewUrl)}
       />
     </>

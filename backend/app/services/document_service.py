@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from io import BytesIO
 
@@ -26,6 +27,10 @@ from app.services.session_service import session_service
 from app.storage.storage import storage
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+MAX_UPLOAD_COUNT = 20
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024
+
+logger = logging.getLogger("paper_cleaner")
 
 
 class DocumentService:
@@ -35,6 +40,11 @@ class DocumentService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one image file is required.",
+            )
+        if len(files) > MAX_UPLOAD_COUNT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Upload at most {MAX_UPLOAD_COUNT} images at once.",
             )
 
         next_order_index = len(session.document_ids)
@@ -97,6 +107,7 @@ class DocumentService:
             session.updated_at = storage.utcnow()
             storage.save_session_documents(session, documents)
         except Exception:
+            logger.exception("Document upload for session '%s' failed.", session_id)
             self._cleanup_paths(created_paths, session_id)
             raise
 
@@ -305,8 +316,18 @@ class DocumentService:
     def _write_upload(self, upload: UploadFile, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         upload.file.seek(0)
+        total_bytes = 0
         with destination.open("wb") as output:
             while chunk := upload.file.read(1024 * 1024):
+                total_bytes += len(chunk)
+                if total_bytes > MAX_UPLOAD_SIZE_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"Image exceeds the {MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB "
+                            "upload limit."
+                        ),
+                    )
                 output.write(chunk)
 
     def _load_normalized_image(self, path: Path) -> Image.Image:

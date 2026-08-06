@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+import logging
 import re
 
 from fastapi import HTTPException, status
@@ -10,6 +11,8 @@ from PIL import Image
 from app.schemas.document import DocumentMetadata
 from app.services.render import render_service
 from app.storage.storage import storage
+
+logger = logging.getLogger("paper_cleaner")
 
 
 class ExportImageService:
@@ -37,6 +40,7 @@ class ExportImageService:
                 erase_paths=document.erase_paths,
             )
         except Exception as exc:
+            logger.exception("Document '%s' export render failed.", document.id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Document '{document.id}' could not be rendered for export.",

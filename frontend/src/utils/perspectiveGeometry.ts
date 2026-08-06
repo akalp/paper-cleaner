@@ -54,8 +54,8 @@ export function clampPointToImageBounds(
   imageHeight: number,
 ): Point {
   return [
-    Math.min(Math.max(point[0], 0), imageWidth),
-    Math.min(Math.max(point[1], 0), imageHeight),
+    Math.min(Math.max(point[0], 0), Math.max(imageWidth - 1, 0)),
+    Math.min(Math.max(point[1], 0), Math.max(imageHeight - 1, 0)),
   ];
 }
 

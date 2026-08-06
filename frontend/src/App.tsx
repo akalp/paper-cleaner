@@ -26,6 +26,12 @@ function App() {
     isReordering,
     activeExportAction,
     activeDocumentAction,
+    successNotice,
+    clearSessionError,
+    clearUploadError,
+    clearDocumentActionError,
+    clearWorkspaceActionError,
+    dismissSuccessNotice,
     createNewSession,
     openSession,
     removeSession,
@@ -87,23 +93,38 @@ function App() {
         onExportPdf={exportPdf}
       />
 
+      {successNotice ? (
+        <FeedbackPanel title="Success" message={successNotice} onDismiss={dismissSuccessNotice} />
+      ) : null}
+
       {sessionError ? (
         <FeedbackPanel
           title="Session unavailable"
           message={sessionError}
           actionLabel="Retry"
           onAction={() => window.location.reload()}
+          onDismiss={clearSessionError}
         />
       ) : null}
 
-      {uploadError ? <FeedbackPanel title="Upload failed" message={uploadError} /> : null}
+      {uploadError ? (
+        <FeedbackPanel title="Upload failed" message={uploadError} onDismiss={clearUploadError} />
+      ) : null}
 
       {documentActionError ? (
-        <FeedbackPanel title="Document update failed" message={documentActionError} />
+        <FeedbackPanel
+          title="Document update failed"
+          message={documentActionError}
+          onDismiss={clearDocumentActionError}
+        />
       ) : null}
 
       {workspaceActionError ? (
-        <FeedbackPanel title="Workspace action failed" message={workspaceActionError} />
+        <FeedbackPanel
+          title="Workspace action failed"
+          message={workspaceActionError}
+          onDismiss={clearWorkspaceActionError}
+        />
       ) : null}
 
       <section className="workspace-body">

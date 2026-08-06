@@ -64,7 +64,11 @@ export function WorkspaceHeader({
           {isUploading ? "Uploading..." : "Upload Images"}
         </button>
         <p className="session-label">
-          {sessionId === null ? "No active session" : `Session ${sessionId}`}
+          {sessionId === null
+            ? "No active session"
+            : selectedDocumentName !== null
+              ? `Editing ${selectedDocumentName}`
+              : "Active session"}
         </p>
         <div className="export-actions" aria-label="Export actions">
           <button

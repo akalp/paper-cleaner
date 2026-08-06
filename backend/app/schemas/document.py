@@ -1,4 +1,5 @@
 from enum import StrEnum
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,7 @@ class CropRect(BaseModel):
 
 
 class ErasePath(BaseModel):
+    id: str = Field(default_factory=lambda: f"erase_{uuid4().hex[:12]}")
     points: list[Point] = Field(min_length=3)
     mode: ErasePathMode = ErasePathMode.FILL_WHITE
 
@@ -93,7 +95,3 @@ class UpdateToneRequest(BaseModel):
 
 class UpdateEraseRequest(BaseModel):
     erase_paths: list[ErasePath] = Field(default_factory=list)
-
-
-class UploadDocumentsResponse(BaseModel):
-    documents: list[DocumentResponse]

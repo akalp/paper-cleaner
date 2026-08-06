@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import HTTPException, status
 import img2pdf
 
 from app.services.export_image import export_image_service
 from app.storage.storage import StorageConsistencyError, storage
+
+logger = logging.getLogger("paper_cleaner")
 
 
 class ExportPdfService:
@@ -36,6 +40,7 @@ class ExportPdfService:
                 detail=str(exc),
             ) from exc
         except Exception as exc:
+            logger.exception("Session '%s' PDF export failed.", session_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Session '{session_id}' could not be exported as a PDF.",

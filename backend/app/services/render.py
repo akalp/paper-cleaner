@@ -108,10 +108,7 @@ class RenderService:
             brightness=brightness,
             contrast=contrast,
         )
-        erased = erase_service.apply_erase_paths(
-            self._to_png_compatible(toned),
-            erase_paths or [],
-        )
+        erased = erase_service.apply_erase_paths(toned, erase_paths or [])
         return self._to_png_compatible(erased)
 
     def _to_png_compatible(self, image: Image.Image) -> Image.Image:

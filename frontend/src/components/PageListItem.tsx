@@ -48,9 +48,23 @@ export function PageListItem({
         onClick={() => onSelect(document.id)}
       >
         <span className="page-order">{index + 1}</span>
+        <span className="page-thumb">
+          <img
+            src={document.preview_url}
+            alt=""
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.style.visibility = "hidden";
+            }}
+          />
+        </span>
         <span className="page-copy">
           <span className="page-name">{document.filename}</span>
-          <span className="page-meta">Preview ready</span>
+          <span className="page-meta">
+            {document.auto_detect_status === "detected"
+              ? "Corners detected"
+              : "Fallback bounds — check corners"}
+          </span>
         </span>
       </button>
     </li>
