@@ -108,7 +108,7 @@ export function EraseEditorCanvas({
         <Stage
           width={viewport.width}
           height={viewport.height}
-          onMouseDown={(event) => {
+          onPointerDown={(event) => {
             if (disabled) {
               return;
             }
