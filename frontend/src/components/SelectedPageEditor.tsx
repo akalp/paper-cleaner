@@ -8,6 +8,7 @@ import type {
   Point,
   TonePreset,
 } from "../types";
+import { createId } from "../utils/ids";
 import {
   areCropRectsEqual,
   arePointsEqual,
@@ -257,7 +258,7 @@ function editorDraftReducer(state: EditorDraftState, action: EditorDraftAction):
         erasePaths: [
           ...state.erasePaths,
           {
-            id: crypto.randomUUID(),
+            id: createId(),
             points: state.activeErasePoints,
             mode: "fill_white",
           },

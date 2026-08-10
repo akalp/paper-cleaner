@@ -234,4 +234,18 @@ describe("SelectedPageEditor", () => {
     expect(paths).toHaveLength(0);
     confirmSpy.mockRestore();
   });
+
+  it("completes an erase region without crypto.randomUUID (Safari insecure context)", () => {
+    vi.stubGlobal("crypto", { randomUUID: undefined });
+    renderEditor(makeDocument());
+
+    fireEvent.click(screen.getByRole("tab", { name: "Erase" }));
+    fireEvent.click(screen.getByTestId("add-erase-point"));
+    fireEvent.click(screen.getByTestId("add-erase-point"));
+    fireEvent.click(screen.getByTestId("add-erase-point"));
+    fireEvent.click(screen.getByRole("button", { name: "Complete Region" }));
+
+    const paths = JSON.parse(screen.getByTestId("erase-canvas").getAttribute("data-paths") ?? "[]");
+    expect(paths).toHaveLength(1);
+  });
 });
