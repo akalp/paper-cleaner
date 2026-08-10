@@ -3,13 +3,11 @@ import type { ExportAction } from "../types";
 interface WorkspaceHeaderProps {
   isSessionLoading: boolean;
   isUploading: boolean;
-  sessionId: string | null;
   hasDocuments: boolean;
   selectedDocumentName: string | null;
   activeExportAction: ExportAction | null;
-  isCreatingSession: boolean;
-  onCreateSession: () => Promise<void>;
   onUploadClick: () => void;
+  onNavigateHome: () => void;
   onExportCurrentDocument: () => Promise<void>;
   onExportZip: () => Promise<void>;
   onExportPdf: () => Promise<void>;
@@ -18,58 +16,46 @@ interface WorkspaceHeaderProps {
 export function WorkspaceHeader({
   isSessionLoading,
   isUploading,
-  sessionId,
   hasDocuments,
   selectedDocumentName,
   activeExportAction,
-  isCreatingSession,
-  onCreateSession,
   onUploadClick,
+  onNavigateHome,
   onExportCurrentDocument,
   onExportZip,
   onExportPdf,
 }: WorkspaceHeaderProps) {
-  const canExportSession = !isSessionLoading && sessionId !== null && hasDocuments;
+  const canExportSession = !isSessionLoading && hasDocuments;
   const canExportCurrentPage = canExportSession && selectedDocumentName !== null;
   const isExporting = activeExportAction !== null;
 
   return (
     <header className="workspace-header">
-      <div>
+      <div className="workspace-heading">
         <p className="workspace-kicker">Workspace</p>
         <h1>paper-cleaner</h1>
-        <p className="workspace-description">
-          Upload pages, correct perspective, refine crop on the transformed preview, erase unwanted
-          regions, reorder pages, and export print-ready results.
+        <p className="session-label">
+          {selectedDocumentName !== null ? `Editing ${selectedDocumentName}` : "Active session"}
         </p>
       </div>
 
       <div className="workspace-actions">
         <button
-          className="primary-action"
+          className="secondary-action"
           type="button"
-          onClick={() => {
-            void onCreateSession();
-          }}
-          disabled={isSessionLoading || isCreatingSession}
+          onClick={onNavigateHome}
+          disabled={isSessionLoading}
         >
-          {isCreatingSession ? "Creating..." : "New Session"}
+          Sessions
         </button>
         <button
           className="primary-action"
           type="button"
           onClick={onUploadClick}
-          disabled={isSessionLoading || sessionId === null || isUploading || isCreatingSession}
+          disabled={isSessionLoading || isUploading}
         >
           {isUploading ? "Uploading..." : "Upload Images"}
         </button>
-        <p className="session-label">
-          {sessionId === null
-            ? "No active session"
-            : selectedDocumentName !== null
-              ? `Editing ${selectedDocumentName}`
-              : "Active session"}
-        </p>
         <div className="export-actions" aria-label="Export actions">
           <button
             className="secondary-action"

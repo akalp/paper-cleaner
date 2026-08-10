@@ -89,6 +89,7 @@ function downloadExportFile(file: ExportFileResponse) {
 
 export function useWorkspaceSession() {
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const [resumeSessionId, setResumeSessionId] = useState<string | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -153,29 +154,17 @@ export function useWorkspaceSession() {
         setSessionHistory(history.sessions);
 
         const storedSessionId = readStoredSessionId();
-        if (storedSessionId === null) {
-          setSession(null);
-          setSelectedDocumentId(null);
-          return;
+        const storedStillExists =
+          storedSessionId !== null &&
+          history.sessions.some((entry) => entry.id === storedSessionId);
+
+        if (storedSessionId !== null && !storedStillExists) {
+          clearStoredSessionId();
         }
 
-        try {
-          const restoredSession = await getSession(storedSessionId);
-          if (!isMounted) {
-            return;
-          }
-          activateSession(restoredSession);
-        } catch (error) {
-          if (!isMounted) {
-            return;
-          }
-          clearStoredSessionId();
-          setSession(null);
-          setSelectedDocumentId(null);
-          if (!isMissingSessionError(error)) {
-            setSessionError(getErrorMessage(error, "Could not restore the previous session."));
-          }
-        }
+        setResumeSessionId(storedStillExists ? storedSessionId : null);
+        setSession(null);
+        setSelectedDocumentId(null);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -211,6 +200,7 @@ export function useWorkspaceSession() {
 
   function activateSession(nextSession: SessionResponse, preferredDocumentId?: string | null) {
     writeStoredSessionId(nextSession.id);
+    setResumeSessionId(nextSession.id);
     setSession(nextSession);
     setSelectedDocumentId(() => {
       if (
@@ -227,6 +217,7 @@ export function useWorkspaceSession() {
 
   function clearActiveSession() {
     clearStoredSessionId();
+    setResumeSessionId(null);
     setSession(null);
     setSelectedDocumentId(null);
   }
@@ -595,6 +586,7 @@ export function useWorkspaceSession() {
 
   return {
     session,
+    resumeSessionId,
     sessionHistory,
     documents,
     selectedDocument,

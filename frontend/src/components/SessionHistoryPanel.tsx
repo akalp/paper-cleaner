@@ -1,4 +1,5 @@
 import type { SessionSummary } from "../types";
+import { formatPageCount, formatUpdatedAt } from "../utils/sessionFormat";
 
 interface SessionHistoryPanelProps {
   sessions: SessionSummary[];
@@ -9,26 +10,7 @@ interface SessionHistoryPanelProps {
   onCreateSession: () => Promise<void>;
   onOpenSession: (sessionId: string) => Promise<void>;
   onDeleteSession: (sessionId: string) => Promise<void>;
-}
-
-function formatUpdatedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatPageCount(count: number): string {
-  if (count === 1) {
-    return "1 page";
-  }
-
-  return `${count} pages`;
+  hideCreateButton?: boolean;
 }
 
 export function SessionHistoryPanel({
@@ -40,6 +22,7 @@ export function SessionHistoryPanel({
   onCreateSession,
   onOpenSession,
   onDeleteSession,
+  hideCreateButton = false,
 }: SessionHistoryPanelProps) {
   const isBusy = isSessionLoading || isCreatingSession || deletingSessionId !== null;
 
@@ -62,16 +45,18 @@ export function SessionHistoryPanel({
           <p className="panel-kicker">History</p>
           <h2>Sessions</h2>
         </div>
-        <button
-          className="primary-action session-new-button"
-          type="button"
-          disabled={isBusy}
-          onClick={() => {
-            void onCreateSession();
-          }}
-        >
-          {isCreatingSession ? "Creating..." : "New Session"}
-        </button>
+        {hideCreateButton ? null : (
+          <button
+            className="primary-action session-new-button"
+            type="button"
+            disabled={isBusy}
+            onClick={() => {
+              void onCreateSession();
+            }}
+          >
+            {isCreatingSession ? "Creating..." : "New Session"}
+          </button>
+        )}
       </div>
 
       {sessions.length === 0 ? (

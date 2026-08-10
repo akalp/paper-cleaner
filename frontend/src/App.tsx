@@ -1,17 +1,21 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FeedbackPanel } from "./components/FeedbackPanel";
 import { PageSidebar } from "./components/PageSidebar";
 import { SelectedPageEditor } from "./components/SelectedPageEditor";
-import { SessionHistoryPanel } from "./components/SessionHistoryPanel";
+import { SessionHomeView } from "./components/SessionHomeView";
 import { WorkspaceHeader } from "./components/WorkspaceHeader";
 import { useWorkspaceSession } from "./hooks/useWorkspaceSession";
 
+type WorkspaceView = "home" | "workspace";
+
 function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [view, setView] = useState<WorkspaceView>("home");
   const {
     session,
     sessionHistory,
+    resumeSessionId,
     documents,
     selectedDocument,
     selectedDocumentId,
@@ -51,6 +55,15 @@ function App() {
     exportPdf,
   } = useWorkspaceSession();
 
+  const showWorkspace = view === "workspace" && session !== null;
+
+  const resumeSession = useMemo(() => {
+    if (resumeSessionId === null) {
+      return null;
+    }
+    return sessionHistory.find((entry) => entry.id === resumeSessionId) ?? null;
+  }, [resumeSessionId, sessionHistory]);
+
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
@@ -65,6 +78,16 @@ function App() {
     fileInputRef.current?.click();
   }
 
+  async function handleCreateSession() {
+    await createNewSession();
+    setView("workspace");
+  }
+
+  async function handleOpenSession(sessionId: string) {
+    await openSession(sessionId);
+    setView("workspace");
+  }
+
   return (
     <main className="workspace">
       <input
@@ -76,21 +99,6 @@ function App() {
         onChange={(event) => {
           void handleUpload(event);
         }}
-      />
-
-      <WorkspaceHeader
-        isSessionLoading={isSessionLoading}
-        isUploading={isUploading}
-        sessionId={session?.id ?? null}
-        hasDocuments={documents.length > 0}
-        selectedDocumentName={selectedDocument?.filename ?? null}
-        activeExportAction={activeExportAction}
-        isCreatingSession={isCreatingSession}
-        onCreateSession={createNewSession}
-        onUploadClick={triggerFilePicker}
-        onExportCurrentDocument={exportCurrentDocument}
-        onExportZip={exportZip}
-        onExportPdf={exportPdf}
       />
 
       {successNotice ? (
@@ -127,42 +135,59 @@ function App() {
         />
       ) : null}
 
-      <section className="workspace-body">
-        <div className="workspace-sidebar-stack">
-          <SessionHistoryPanel
-            sessions={sessionHistory}
-            activeSessionId={session?.id ?? null}
+      {showWorkspace ? (
+        <>
+          <WorkspaceHeader
             isSessionLoading={isSessionLoading}
-            isCreatingSession={isCreatingSession}
-            deletingSessionId={deletingSessionId}
-            onCreateSession={createNewSession}
-            onOpenSession={openSession}
-            onDeleteSession={removeSession}
+            isUploading={isUploading}
+            hasDocuments={documents.length > 0}
+            selectedDocumentName={selectedDocument?.filename ?? null}
+            activeExportAction={activeExportAction}
+            onUploadClick={triggerFilePicker}
+            onNavigateHome={() => setView("home")}
+            onExportCurrentDocument={exportCurrentDocument}
+            onExportZip={exportZip}
+            onExportPdf={exportPdf}
           />
-          <PageSidebar
-            documents={documents}
-            selectedDocumentId={selectedDocumentId}
-            hasActiveSession={session !== null}
-            isSessionLoading={isSessionLoading}
-            isReordering={isReordering}
-            onSelectDocument={selectDocument}
-            onReorderDocuments={reorderDocuments}
-          />
-        </div>
-        <SelectedPageEditor
-          document={selectedDocument}
+
+          <section className="workspace-body">
+            <PageSidebar
+              documents={documents}
+              selectedDocumentId={selectedDocumentId}
+              hasActiveSession={session !== null}
+              isSessionLoading={isSessionLoading}
+              isReordering={isReordering}
+              onSelectDocument={selectDocument}
+              onReorderDocuments={reorderDocuments}
+            />
+            <SelectedPageEditor
+              document={selectedDocument}
+              isSessionLoading={isSessionLoading}
+              activeDocumentAction={activeDocumentAction}
+              onSavePerspective={savePerspective}
+              onResetPerspective={resetPerspective}
+              onRerunAutoDetect={rerunAutoDetect}
+              onSaveCrop={saveCrop}
+              onResetCrop={resetCrop}
+              onSaveTone={saveTone}
+              onResetTone={resetTone}
+              onSaveErase={saveErase}
+            />
+          </section>
+        </>
+      ) : (
+        <SessionHomeView
+          sessions={sessionHistory}
+          resumeSession={resumeSession}
+          activeSessionId={session?.id ?? null}
           isSessionLoading={isSessionLoading}
-          activeDocumentAction={activeDocumentAction}
-          onSavePerspective={savePerspective}
-          onResetPerspective={resetPerspective}
-          onRerunAutoDetect={rerunAutoDetect}
-          onSaveCrop={saveCrop}
-          onResetCrop={resetCrop}
-          onSaveTone={saveTone}
-          onResetTone={resetTone}
-          onSaveErase={saveErase}
+          isCreatingSession={isCreatingSession}
+          deletingSessionId={deletingSessionId}
+          onCreateSession={handleCreateSession}
+          onOpenSession={handleOpenSession}
+          onDeleteSession={removeSession}
         />
-      </section>
+      )}
     </main>
   );
 }
