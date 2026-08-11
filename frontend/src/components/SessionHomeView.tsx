@@ -1,7 +1,7 @@
 import type { SessionSummary } from "../types";
 import { formatPageCount, formatUpdatedAt } from "../utils/sessionFormat";
-import { EmptyPanel } from "./EmptyPanel";
 import { SessionHistoryPanel } from "./SessionHistoryPanel";
+import { Skeleton } from "./Skeleton";
 
 interface SessionHomeViewProps {
   sessions: SessionSummary[];
@@ -73,11 +73,11 @@ export function SessionHomeView({
       ) : null}
 
       {isSessionLoading ? (
-        <EmptyPanel
-          large
-          title="Preparing workspace"
-          message="Loading local sessions and the last active workspace."
-        />
+        <div className="session-history-loading" role="status" aria-label="Loading session history">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
       ) : (
         <SessionHistoryPanel
           sessions={sessions}

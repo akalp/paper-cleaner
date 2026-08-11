@@ -1035,7 +1035,9 @@ interface PreviewPaneProps {
 
 function PreviewPane({ filename, previewUrl, liveFilter }: PreviewPaneProps) {
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+  const [loadedPreviewUrl, setLoadedPreviewUrl] = useState<string>(previewUrl);
   const hasPreviewError = failedPreviewUrl === previewUrl;
+  const isRefreshing = loadedPreviewUrl !== previewUrl;
 
   return hasPreviewError ? (
     <div className="preview-error" role="alert">
@@ -1053,11 +1055,17 @@ function PreviewPane({ filename, previewUrl, liveFilter }: PreviewPaneProps) {
           <h3>Latest render</h3>
         </div>
       </div>
+      {isRefreshing ? (
+        <p className="preview-refresh-note" role="status" aria-label="Refreshing preview…">
+          Refreshing preview…
+        </p>
+      ) : null}
       <img
         className="preview-image"
         src={previewUrl}
         alt={`Transformed preview of ${filename}`}
         style={liveFilter ? { filter: liveFilter } : undefined}
+        onLoad={() => setLoadedPreviewUrl(previewUrl)}
         onError={() => setFailedPreviewUrl(previewUrl)}
       />
     </>

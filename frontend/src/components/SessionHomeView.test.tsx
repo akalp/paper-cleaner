@@ -93,10 +93,10 @@ describe("SessionHomeView", () => {
     confirmSpy.mockRestore();
   });
 
-  it("shows a loading state while session history loads", () => {
+  it("shows a skeleton loading state while session history loads", () => {
     renderView({ isSessionLoading: true });
 
-    expect(screen.getByRole("heading", { name: "Preparing workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading session history" })).toBeInTheDocument();
   });
 
   it("labels the New Session button as creating while a session is created", () => {

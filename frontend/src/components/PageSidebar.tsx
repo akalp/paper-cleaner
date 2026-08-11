@@ -16,6 +16,7 @@ import {
 
 import { EmptyPanel } from "./EmptyPanel";
 import { PageListItem } from "./PageListItem";
+import { Skeleton } from "./Skeleton";
 import type { DocumentResponse } from "../types";
 
 interface PageSidebarProps {
@@ -79,10 +80,11 @@ export function PageSidebar({
       </div>
 
       {isSessionLoading ? (
-        <EmptyPanel
-          title="Preparing workspace"
-          message="Loading local sessions and the last active workspace."
-        />
+        <div className="page-list-loading" role="status" aria-label="Loading pages">
+          <Skeleton variant="row" />
+          <Skeleton variant="row" />
+          <Skeleton variant="row" />
+        </div>
       ) : !hasActiveSession ? (
         <EmptyPanel
           title="No active session"
