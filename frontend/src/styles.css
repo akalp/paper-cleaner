@@ -23,6 +23,11 @@ body {
   min-height: 100vh;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 button,
 input,
 textarea,
@@ -121,12 +126,17 @@ img {
 .export-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   justify-content: flex-end;
   gap: 8px;
 }
 
 .primary-action,
 .secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
   border: 0;
   border-radius: 999px;
   padding: 12px 18px;
@@ -361,6 +371,7 @@ img {
   display: grid;
   gap: 4px;
   min-width: 0;
+  min-height: 48px;
   padding: 12px;
   border-radius: 18px;
   text-align: left;
@@ -368,6 +379,7 @@ img {
 
 .session-delete-button {
   align-self: stretch;
+  min-height: 48px;
   padding: 10px 12px;
   border-radius: 16px;
   color: #7a3730;
@@ -592,14 +604,18 @@ img {
 
 .tool-mode-switcher {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  max-width: 100%;
   padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
   border-radius: 999px;
   background: rgba(34, 53, 44, 0.06);
 }
 
 .tool-mode-button {
+  flex: 0 0 auto;
   border: 0;
   border-radius: 999px;
   padding: 10px 14px;
@@ -874,15 +890,91 @@ img {
   color: #55635b;
 }
 
-@media (max-width: 1080px) {
+.skeleton-block {
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 53, 44, 0.06),
+    rgba(34, 53, 44, 0.14),
+    rgba(34, 53, 44, 0.06)
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-block--row {
+  height: 48px;
+}
+
+.skeleton-block--card {
+  height: 96px;
+}
+
+.skeleton-block--preview {
+  width: 100%;
+  min-height: 280px;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.preview-refresh-note {
+  margin: 0;
+  color: #516159;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.workspace-header,
+.feedback-panel,
+.session-panel,
+.sidebar,
+.editor-panel,
+.session-home-hero,
+.resume-card {
+  animation: panel-fade-in 220ms ease-out both;
+}
+
+@media (max-width: 1024px) {
   .workspace {
     padding: 20px;
+  }
+
+  .workspace-header {
+    flex-wrap: wrap;
   }
 
   .workspace-body,
   .editor-card,
   .editor-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-body {
+    min-height: 0;
+  }
+
+  .workspace-body .editor-panel {
+    order: -1;
   }
 
   .preview-frame {
@@ -894,7 +986,7 @@ img {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .workspace-header {
     flex-direction: column;
     align-items: stretch;
@@ -903,6 +995,11 @@ img {
 
   .workspace-actions {
     align-items: stretch;
+    min-width: 0;
+  }
+
+  .workspace-actions button {
+    width: 100%;
   }
 
   .resume-card {
@@ -915,13 +1012,17 @@ img {
   }
 
   .export-actions .secondary-action {
-    flex: 1 1 160px;
+    flex: 1 1 100%;
   }
 
   .session-panel,
   .sidebar,
   .editor-panel {
     padding: 18px;
+  }
+
+  .page-drag-handle {
+    min-height: 44px;
   }
 
   .document-metadata {
@@ -938,9 +1039,14 @@ img {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .workspace {
-    padding: 14px;
+    padding: 12px;
+  }
+
+  .session-history-list,
+  .page-list {
+    gap: 8px;
   }
 
   .preview-frame,

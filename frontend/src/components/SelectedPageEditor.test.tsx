@@ -133,6 +133,30 @@ function readCorners(): Point[] {
 }
 
 describe("SelectedPageEditor", () => {
+  it("renders the four editor mode tabs in a single tab switcher row", () => {
+    renderEditor(makeDocument());
+
+    const switcher = document.querySelector(".tool-mode-switcher");
+    expect(switcher).not.toBeNull();
+    const tabs = Array.from(switcher?.querySelectorAll('[role="tab"]') ?? []);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Perspective", "Crop", "Tone", "Erase"]);
+    expect(screen.getByRole("tab", { name: "Perspective" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tablist", { name: "Editor mode" })).toBeInTheDocument();
+  });
+
+  it("shows a refreshing status while the preview image reloads", () => {
+    const view = renderEditor(makeDocument({ preview_url: "/preview-v1" }));
+
+    view.rerender(makeDocument({ preview_url: "/preview-v2", preview_version: "v2" }));
+    expect(screen.getByRole("status", { name: "Refreshing preview…" })).toBeInTheDocument();
+
+    fireEvent.load(screen.getByAltText(/Transformed preview of page\.png/));
+    expect(screen.queryByRole("status", { name: "Refreshing preview…" })).not.toBeInTheDocument();
+  });
+
   it("rehydrates corners when server state changes for the same document", () => {
     const view = renderEditor(makeDocument());
     expect(readCorners()).toEqual([

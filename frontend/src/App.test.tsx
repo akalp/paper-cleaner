@@ -22,11 +22,19 @@ vi.mock("./api", () => ({
 }));
 
 vi.mock("./components/SelectedPageEditor", () => ({
-  SelectedPageEditor: () => <div data-testid="page-editor">Editor</div>,
+  SelectedPageEditor: () => (
+    <div data-testid="page-editor" className="editor-panel">
+      Editor
+    </div>
+  ),
 }));
 
 vi.mock("./components/PageSidebar", () => ({
-  PageSidebar: () => <div data-testid="page-sidebar">Sidebar</div>,
+  PageSidebar: () => (
+    <div data-testid="page-sidebar" className="sidebar">
+      Sidebar
+    </div>
+  ),
 }));
 
 function makeDocument(overrides: Partial<DocumentResponse> = {}): DocumentResponse {
@@ -119,6 +127,20 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "New Session" })).not.toBeInTheDocument();
     expect(screen.getByTestId("page-sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("page-editor")).toBeInTheDocument();
+  });
+
+  it("renders the workspace body as direct sidebar and editor panel siblings", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New Session" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Upload Images" })).toBeInTheDocument();
+    });
+
+    const body = document.querySelector(".workspace-body");
+    expect(body).not.toBeNull();
+    const children = Array.from(body?.children ?? []);
+    expect(children.map((child) => child.className)).toEqual(["sidebar", "editor-panel"]);
   });
 
   it("returns to the home view from the Sessions button", async () => {
