@@ -203,6 +203,22 @@ Design should be:
 - dense enough to be efficient
 - free of unnecessary marketing-style decoration
 
+## Responsive behavior
+
+The UI must degrade gracefully from desktop to phone viewports:
+
+- breakpoints: tablet at `1024px`, mobile at `768px`, small mobile at `480px`
+- on narrow screens the editor panel is placed before the page sidebar so
+  editing remains immediately reachable
+- editor mode tabs stay on a single row and scroll horizontally when they do
+  not fit
+- interactive controls keep consistent sizing and at least 48px touch-target
+  height on mobile
+- horizontal page overflow must be prevented at every supported viewport
+
+Loading states (skeletons) are used while session history, the page list, and
+preview refreshes are pending. Transitions respect `prefers-reduced-motion`.
+
 ## Accessibility and usability
 
 At minimum:
