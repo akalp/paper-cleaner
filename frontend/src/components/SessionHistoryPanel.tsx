@@ -73,7 +73,8 @@ export function SessionHistoryPanel({
                 <button
                   className="session-open-button"
                   type="button"
-                  disabled={isBusy || isActive}
+                  title={session.id}
+                  disabled={isBusy}
                   onClick={() => {
                     void onOpenSession(session.id);
                   }}
@@ -85,7 +86,6 @@ export function SessionHistoryPanel({
                     {formatPageCount(session.document_count)} /{" "}
                     {formatUpdatedAt(session.updated_at)}
                   </span>
-                  <span className="session-row-id">{session.id}</span>
                 </button>
                 <button
                   className="session-delete-button"

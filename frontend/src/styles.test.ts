@@ -94,17 +94,38 @@ describe("responsive layout contract (styles.css)", () => {
     expect(actions).toContain("min-height: 48px");
   });
 
-  it("stretches header buttons full width on mobile", () => {
+  it("lets header actions wrap in a row on mobile", () => {
     const mobile = mediaBody("(max-width: 768px)");
     expect(mobile).not.toBeNull();
+    const actions = findRule(mobile ?? "", ".workspace-actions");
+    expect(actions).not.toBeNull();
+    expect(actions).toContain("flex-wrap: wrap");
     const buttons = findRule(mobile ?? "", ".workspace-actions button");
     expect(buttons).not.toBeNull();
-    expect(buttons).toContain("width: 100%");
+    expect(buttons).toContain("width: auto");
   });
 
   it("aligns export buttons with a consistent stretch layout", () => {
     const exportActions = findRule(stylesCss, ".export-actions");
     expect(exportActions).not.toBeNull();
     expect(exportActions).toContain("align-items: stretch");
+  });
+
+  it("compacts the header and editor frames on short viewports", () => {
+    const short = mediaBody("(max-height: 520px)");
+    expect(short).not.toBeNull();
+    const header = findRule(short ?? "", ".workspace-header");
+    expect(header).not.toBeNull();
+    expect(header).toContain("padding: 16px 20px");
+    const frames = findRule(short ?? "", ".source-editor-frame");
+    expect(frames).not.toBeNull();
+    expect(frames).toContain("min-height: 120px");
+  });
+
+  it("keeps history rows free of raw session ids", () => {
+    const homeView = findRule(stylesCss, ".session-home");
+    expect(homeView).not.toBeNull();
+    expect(homeView).toContain("align-content: center");
+    expect(stylesCss).not.toMatch(/\.session-row-id/);
   });
 });
