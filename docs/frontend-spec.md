@@ -207,11 +207,19 @@ Design should be:
 
 The UI must degrade gracefully from desktop to phone viewports:
 
-- breakpoints: tablet at `1024px`, mobile at `768px`, small mobile at `480px`
+- breakpoints: tablet at `1024px`, mobile at `768px`, small mobile at `480px`,
+  and a wide breakpoint at `1280px` for editor layout and header actions
 - on narrow screens the editor panel is placed before the page sidebar so
   editing remains immediately reachable
-- on short viewports (height at most `520px`) the header and home hero
-  compact, and editor/preview frames shrink so editing stays on-screen
+- on short viewports (height at most `520px`, or at most `800px` combined
+  with a width of `1024px` or less) the header and home hero compact, and
+  editor/preview frames shrink so editing stays on-screen
+- header actions never wrap into orphan rows: on desktop they stack on the
+  right with the session navigation above the export row; from `769px` to
+  `1280px` they sit on one right-aligned row beside the heading (wrapping
+  below it when there is no room); on mobile they split into two rows with
+  the session navigation stretched to equal halves and the export actions on
+  their own row
 - editor mode tabs stay on a single row and scroll horizontally when they do
   not fit
 - interactive controls keep consistent sizing and at least 48px touch-target
