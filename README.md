@@ -6,9 +6,17 @@ The app is intentionally local-first and simple. It does not include accounts, a
 
 ## Screenshots
 
+Landing page with upload and session management:
+
+![Home and sessions](docs/screenshots/home.png)
+
 Full-page workspace overview with a loaded multi-page session:
 
 ![paper-cleaner workspace overview](docs/screenshots/workspace.png)
+
+Perspective correction with auto-detected corners, manual corner dragging, and a magnifier:
+
+![Perspective editor](docs/screenshots/perspective-editor.png)
 
 Full-page crop, tone, and manual erase views:
 
