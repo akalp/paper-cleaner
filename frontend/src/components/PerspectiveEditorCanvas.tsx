@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KonvaEventObject } from "konva/lib/Node";
 import { Circle, Group, Image as KonvaImage, Layer, Line, Stage, Text } from "react-konva";
 
 import { useLoadedImage } from "../hooks/useLoadedImage";
@@ -13,6 +14,17 @@ import {
 const CORNER_SHORT_LABELS = ["TL", "TR", "BR", "BL"] as const;
 const FALLBACK_CONTAINER_WIDTH = 520;
 const MAX_STAGE_HEIGHT = 620;
+const MAGNIFIER_ZOOM = 2;
+const MAGNIFIER_DIAMETER = 220;
+const MAGNIFIER_RADIUS = MAGNIFIER_DIAMETER / 2;
+const MAGNIFIER_TOUCH_OFFSET_Y = -140;
+
+type LensInputMode = "pointer" | "touch";
+
+interface MagnifierLensState {
+  handlePosition: { x: number; y: number };
+  windowCenter: { x: number; y: number };
+}
 
 interface PerspectiveEditorCanvasProps {
   activeHandleIndex: number | null;
@@ -23,6 +35,29 @@ interface PerspectiveEditorCanvasProps {
   imageWidth: number;
   onActiveHandleChange: (index: number | null) => void;
   onCornerChange: (index: number, point: Point) => void;
+}
+
+function clampLensCenterToStage(
+  position: { x: number; y: number },
+  stageWidth: number,
+  stageHeight: number,
+  lensRadius: number,
+): { x: number; y: number } {
+  const minX = lensRadius;
+  const minY = lensRadius;
+  const maxX = Math.max(stageWidth - lensRadius, minX);
+  const maxY = Math.max(stageHeight - lensRadius, minY);
+
+  return {
+    x: Math.min(Math.max(position.x, minX), maxX),
+    y: Math.min(Math.max(position.y, minY), maxY),
+  };
+}
+
+function getLensInputMode(event: KonvaEventObject<DragEvent>): LensInputMode {
+  return (event.evt as unknown as PointerEvent | undefined)?.pointerType === "touch"
+    ? "touch"
+    : "pointer";
 }
 
 export function PerspectiveEditorCanvas({
@@ -38,6 +73,7 @@ export function PerspectiveEditorCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(FALLBACK_CONTAINER_WIDTH);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [lensState, setLensState] = useState<MagnifierLensState | null>(null);
   const loadedImage = useLoadedImage(imageUrl);
   const isImageLoading = loadedImage.loadedUrl !== imageUrl;
 
@@ -76,6 +112,22 @@ export function PerspectiveEditorCanvas({
   const polygonPoints = useMemo(() => {
     return corners.flatMap((point) => imagePointToCanvasPoint(point, viewport));
   }, [corners, viewport]);
+
+  function updateLensPosition(event: KonvaEventObject<DragEvent>) {
+    const handlePosition = {
+      x: event.target.x(),
+      y: event.target.y(),
+    };
+    const verticalOffset = getLensInputMode(event) === "touch" ? MAGNIFIER_TOUCH_OFFSET_Y : 0;
+    const windowCenter = clampLensCenterToStage(
+      { x: handlePosition.x, y: handlePosition.y + verticalOffset },
+      viewport.width,
+      viewport.height,
+      MAGNIFIER_RADIUS,
+    );
+
+    setLensState({ handlePosition, windowCenter });
+  }
 
   return (
     <div ref={containerRef} className="source-editor-frame">
@@ -128,8 +180,9 @@ export function PerspectiveEditorCanvas({
                     stroke="#f8f6f0"
                     strokeWidth={3}
                     draggable={!disabled}
-                    onDragStart={() => {
+                    onDragStart={(event) => {
                       onActiveHandleChange(index);
+                      updateLensPosition(event);
                     }}
                     onDragMove={(event) => {
                       const nextImagePoint = clampPointToImageBounds(
@@ -138,6 +191,7 @@ export function PerspectiveEditorCanvas({
                         imageHeight,
                       );
                       onCornerChange(index, nextImagePoint);
+                      updateLensPosition(event);
                     }}
                     onDragEnd={(event) => {
                       const nextImagePoint = clampPointToImageBounds(
@@ -147,6 +201,7 @@ export function PerspectiveEditorCanvas({
                       );
                       onCornerChange(index, nextImagePoint);
                       onActiveHandleChange(null);
+                      setLensState(null);
                     }}
                   />
                   <Text
@@ -161,6 +216,68 @@ export function PerspectiveEditorCanvas({
                 </Group>
               );
             })}
+
+            {lensState === null ? null : (
+              <Group
+                listening={false}
+                x={lensState.windowCenter.x}
+                y={lensState.windowCenter.y}
+                clipFunc={(ctx) => {
+                  ctx.beginPath();
+                  ctx.arc(0, 0, MAGNIFIER_RADIUS, 0, Math.PI * 2);
+                  ctx.closePath();
+                }}
+              >
+                <Group
+                  scaleX={MAGNIFIER_ZOOM}
+                  scaleY={MAGNIFIER_ZOOM}
+                  x={-lensState.handlePosition.x * MAGNIFIER_ZOOM}
+                  y={-lensState.handlePosition.y * MAGNIFIER_ZOOM}
+                >
+                  <KonvaImage
+                    image={loadedImage.image}
+                    x={viewport.offsetX}
+                    y={viewport.offsetY}
+                    width={imageWidth * viewport.scale}
+                    height={imageHeight * viewport.scale}
+                    cornerRadius={18}
+                  />
+                  <Line
+                    points={polygonPoints}
+                    closed
+                    stroke="#1f4531"
+                    strokeWidth={2 / MAGNIFIER_ZOOM}
+                  />
+                  {corners.map((corner, index) => {
+                    const [x, y] = imagePointToCanvasPoint(corner, viewport);
+                    const isActive = activeHandleIndex === index;
+
+                    return (
+                      <Circle
+                        key={CORNER_SHORT_LABELS[index]}
+                        x={x}
+                        y={y}
+                        radius={(isActive ? 10 : 8) / MAGNIFIER_ZOOM}
+                        fill={isActive ? "#c36d2a" : "#22352c"}
+                        stroke="#f8f6f0"
+                        strokeWidth={3 / MAGNIFIER_ZOOM}
+                        listening={false}
+                      />
+                    );
+                  })}
+                </Group>
+                <Circle
+                  x={0}
+                  y={0}
+                  radius={MAGNIFIER_RADIUS}
+                  fill="rgba(255, 255, 255, 0.08)"
+                  stroke="#1f4531"
+                  strokeWidth={4}
+                  listening={false}
+                />
+                <Circle x={0} y={0} radius={2.5} fill="#d87732" listening={false} />
+              </Group>
+            )}
           </Layer>
         </Stage>
       )}
